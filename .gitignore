@@ -4,6 +4,22 @@
 
 # Root .gitignore for multi-project .NET 8 solution (Visual Studio / Rider / VS Code)
 
+# build artifacts
+**/[Bb]in/
+**/[Oo]bj/
+*.g.cs
+*.g.i.cs
+*.AssemblyInfo.cs
+
+# IDE/tooling
+.vs/
+.vscode/
+.idea/
+
+# others
+*.log
+*.tmp
+
 # === IDEs / tooling ===
 # Visual Studio
 .vs/
@@ -128,3 +144,6 @@ bower_components/
 .vscode/*
 
 # End of file
+/Formula1/Client/obj/Debug/net8.0-windows/Client.AssemblyInfo.cs
+/Formula1/Client/obj/Debug/net8.0-windows/Client.AssemblyInfoInputs.cache
+/Formula1/Client/obj/Debug/net8.0-windows/MainWindow.g.i.cs
