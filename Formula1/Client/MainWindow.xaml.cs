@@ -12,9 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using static System.Net.Mime.MediaTypeNames;
-
-
-
+using Common;
 namespace Client
 {
     /// <summary>
@@ -23,47 +21,20 @@ namespace Client
     public partial class MainWindow : Window
     {
         private Socket сокет;
+        private Socket UdpSoket;
         private CancellationTokenSource _cts;
         private Task _rxTask;
+        private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
 
         public int port = 0;
         public MainWindow()
         {
             InitializeComponent();
-            izaberiTim();
+            OtvoriOdabirTima();
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void TcpKonekcija(int port)
         {
-            izaberiTim(Timovi.Mercedes);
-        }
-
-
-        private void izaberiFerari_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Ferari);
-        }
-
-        private void izaberiReno_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Reno);
-        }
-
-        private void izaberiHonda_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Honda);
-        }
-        private void izaberiTim(Timovi tim)
-        {
-            if (tim == Timovi.Honda)
-                port = 50000;
-            else if (tim == Timovi.Mercedes)
-                port = 50001;
-            else if (tim == Timovi.Ferari)
-                port = 50002;
-            else if (tim == Timovi.Reno)
-                port = 50003;
-
             сокет = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, port);
             try
@@ -71,14 +42,23 @@ namespace Client
                 сокет.Connect(serverEP);
 
                 _cts = new CancellationTokenSource();
-                _rxTask = Task.Run(() => ReceiveLoop(_cts.Token));
+                _rxTask = Task.Run(() => ReceiveLoopTcp(_cts.Token));
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Ne mogu da se povežem: " + ex.Message);
+                // Ispiši grešku umesto MessageBox
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da se povežem: {ex.Message}\n");
+                    chatBox.ScrollToEnd();
+                });
+
+                // Ponovo otvori prozor za izbor tima
+                OtvoriOdabirTima();
             }
         }
-        private void ReceiveLoop(CancellationToken token)
+
+        private void ReceiveLoopTcp(CancellationToken token)
         {
             byte[] buf = new byte[4096];
 
@@ -98,19 +78,41 @@ namespace Client
 
                     string text = Encoding.UTF8.GetString(buf, 0, n);
                     ObradiPoruku(text);
-                    
                 }
                 catch (SocketException ex)
                 {
-                    Dispatcher.Invoke(() => Disconnect());
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                        Disconnect();
+                    });
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() => Disconnect());
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                        Disconnect();
+                    });
                     break;
                 }
             }
+        }
+
+        private void OtvoriUdpKonekciju()
+        {
+            UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, 50005);
+
+            Dispatcher.Invoke(() =>
+            {
+                chatBox.AppendText($"Otvorena UDP utičnica");
+                chatBox.ScrollToEnd();
+            });
+
         }
 
         private void ObradiPoruku(string poruka)
@@ -121,12 +123,16 @@ namespace Client
                 chatBox.ScrollToEnd();
             });
 
-            if(poruka == "Nema više mesta u timu! Maksimalno 2 klijenta.")
+            // Ako server odbije konekciju, otvori ponovo izbor tima
+            if (poruka.Contains("Nema više mesta u timu"))
             {
-
-            }
+                OtvoriOdabirTima();
+            }else
+            {
+                OtvoriUdpKonekciju();
+            }    
         }
-        
+
         private void Disconnect()
         {
             try
@@ -142,7 +148,70 @@ namespace Client
             }
             catch (Exception ex)
             {
-                //ispisati
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+        }
+
+        private void OtvoriOdabirTima()
+        {
+            OdabirTima odabirTima = new OdabirTima();
+            
+            if (odabirTima.ShowDialog() == true)
+            {
+                Timovi tim = odabirTima.izabraniTim;
+                bolid.Tim = tim;
+                
+                if(tim == Timovi.Mercedes)
+                {
+                    bolid.PotrosnjaGuma = 0.3;
+                    bolid.PotrosnjaGoriva = 0.6;
+                }
+                else if(tim == Timovi.Ferari)
+                {
+                    bolid.PotrosnjaGuma = 0.3;
+                    bolid.PotrosnjaGoriva = 0.5;
+                }
+                else if (tim == Timovi.Reno)
+                {
+                    bolid.PotrosnjaGuma = 0.4;
+                    bolid.PotrosnjaGoriva = 0.7;
+                }
+                else if(tim == Timovi.Honda)
+                {
+                    bolid.PotrosnjaGuma = 0.2;
+                    bolid.PotrosnjaGoriva = 0.6;
+                }
+
+                if (tim == Timovi.Honda)
+                    port = 50000;
+                else if (tim == Timovi.Mercedes)
+                    port = 50001;
+                else if (tim == Timovi.Ferari)
+                    port = 50002;
+                else if (tim == Timovi.Reno)
+                    port = 50003;
+
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Izabrali ste port: {port} - Tim: {bolid.Tim}\n");
+                    chatBox.ScrollToEnd();
+                });
+
+                // Pokušaj da se poveže na server
+                TcpKonekcija(port);
+            }
+            else
+            {
+                // Korisnik je zatvorio prozor bez izbora
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText("[INFO] Prozor za izbor tima je zatvoren.\n");
+                    chatBox.ScrollToEnd();
+                });
             }
         }
     }

@@ -70,7 +70,7 @@ namespace ClientServer
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Server greška: {ex.Message}", "Greška", MessageBoxButton.OK, MessageBoxImage.Error);
+                IspisiGresku($"Server greška: {ex.Message}");
             }
         }
 
@@ -81,10 +81,10 @@ namespace ClientServer
                 try
                 {
                     Socket clientSocket = await listener.AcceptAsync();
-                    
+
                     // Provjeri broj povezanih klijenta za ovaj port
                     int portIndex = port - 50000;
-                    
+
                     if (povezani[portIndex] >= 2)
                     {
                         // Puni - odbij konekciju
@@ -94,39 +94,34 @@ namespace ClientServer
                             await clientSocket.SendAsync(new ArraySegment<byte>(odbijPoruka), SocketFlags.None);
                         }
                         catch { }
-                        
+
                         clientSocket.Close();
-                        
-                        Dispatcher.Invoke(() =>
-                        {
-                            konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + 
-                                "Konekcija odbijena - tim je pun! (" + clientSocket.RemoteEndPoint + ")\n");
-                            konzolaGaraza.ScrollToEnd();
-                        });
-                        
+
+                        IspisiGresku("[" + DateTime.Now.ToString("HH:mm:ss") + "] Konekcija odbijena - tim je pun!");
+
                         continue;  // Nastavi sa čekanjem sledećeg klijenta
                     }
-                    
+
                     lock (_lock)
                     {
                         _clients.Add(clientSocket);
                     }
-                    
+
                     var clientEndPoint = clientSocket.RemoteEndPoint;
-                    
+
                     // Uveći broj povezanih
                     povezani[portIndex]++;
-                    
+
                     // Koristi Dispatcher za ispis u UI
                     Dispatcher.Invoke(() =>
                     {
-                        konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + 
-                            "Klijent " + clientEndPoint + " se povezao na port: " + port + 
+                        konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                            "Klijent " + clientEndPoint + " se povezao na port: " + port +
                             " (" + povezani[portIndex] + "/2)\n");
                         konzolaGaraza.ScrollToEnd();
                     });
 
-                       // Uzvrati poruku klijentu
+                    // Uzvrati poruku klijentu
                     var poruka = Encoding.UTF8.GetBytes($"Uspešno ste se povezali sa garazom! ({povezani[portIndex]}/2)\n");
                     try
                     {
@@ -134,10 +129,7 @@ namespace ClientServer
                     }
                     catch (Exception ex)
                     {
-                        Dispatcher.Invoke(() =>
-                        {
-                            MessageBox.Show($"Greška pri slanju poruke: {ex.Message}");
-                        });
+                        IspisiGresku($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri slanju poruke: {ex.Message}");
                     }
 
                     // Pokreni handling za ovog klijenta na posebnom tredu
@@ -149,101 +141,18 @@ namespace ClientServer
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        MessageBox.Show($"Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
-                    });
+                    IspisiGresku($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
                 }
             }
         }
-
-        /*private async Task HandleClientAsync(Socket clientSocket, int port, CancellationToken cancellationToken)
+        private void IspisiGresku(string poruka)
         {
-            byte[] buffer = new byte[4096];
-            int portIndex = port - 50000;
-
-            try
+            Dispatcher.Invoke(() =>
             {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    int bytesReceived = await clientSocket.ReceiveAsync(
-                        new ArraySegment<byte>(buffer), 
-                        SocketFlags.None, 
-                        cancellationToken);
-
-                    if (bytesReceived == 0)
-                    {
-                        // Klijent je zatvorio konekciju
-                        break;
-                    }
-
-                    string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-                    
-                    // Ispis u UI
-                    Dispatcher.Invoke(() =>
-                    {
-                        konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + 
-                            "[port " + port + "] Primljena poruka: " + receivedMessage + "\n");
-                        konzolaGaraza.ScrollToEnd();
-                    });
-                    
-                    // Odgovori klijentu
-                    string responseMessage = $"Server [port {port}] je primio: {receivedMessage}";
-                    var response = Encoding.UTF8.GetBytes(responseMessage);
-                    
-                    try
-                    {
-                        await clientSocket.SendAsync(new ArraySegment<byte>(response), SocketFlags.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        Dispatcher.Invoke(() =>
-                        {
-                            MessageBox.Show($"Greška pri slanju odgovora: {ex.Message}");
-                        });
-                        break;
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Otkazano
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    MessageBox.Show($"Greška pri čitanju od klijenta: {ex.Message}");
-                });
-            }
-            finally
-            {
-                // Zatvori konekciju
-                try
-                {
-                    clientSocket.Shutdown(SocketShutdown.Both);
-                }
-                catch { }
-
-                clientSocket.Close();
-
-                lock (_lock)
-                {
-                    _clients.Remove(clientSocket);
-                }
-                
-                // Smanji broj povezanih klijenta
-                povezani[portIndex]--;
-
-                // Ispis u UI da je konekcija zatvorena
-                Dispatcher.Invoke(() =>
-                {
-                    konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + 
-                        "Klijent se otkačio sa porta " + port + " (" + povezani[portIndex] + "/2)\n");
-                    konzolaGaraza.ScrollToEnd();
-                });
-            }
-        }*/
+                konzolaGaraza.AppendText(poruka + "\n");
+                konzolaGaraza.ScrollToEnd();
+            });
+        }
 
         protected override void OnClosed(EventArgs e)
         {

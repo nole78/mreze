@@ -1,29 +1,31 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-public enum Timovi { Mercedes, Ferari, Reno, Honda };
-public enum TipGume { Meke, SrednjeTvrde, Tvrde }
 
-namespace Client
+
+namespace Common
 {
-    internal class KonfiguracijaAutomobila
+    public enum Timovi { Mercedes, Ferari, Reno, Honda };
+    public enum TipGume { Meke, SrednjeTvrde, Tvrde }
+    public class KonfiguracijaAutomobila
     {
-        Timovi tim;
-        TipGume tipGume;
-        double potrosnjaGuma;
-        double potrosnjaGoriva;
-        int stanjeGoriva;
-        int stanjeGuma;
+        public Timovi Tim { get; set; }
+        public TipGume TipGume { get; set; }
+        public double PotrosnjaGuma { get; set; }
+        public double PotrosnjaGoriva { get; set; }
+        public int StanjeGoriva { get; set; }
+        public int StanjeGuma { get; set; }
 
-        KonfiguracijaAutomobila(Timovi tim, double potrosnjaGuma, double potrosnjaGoriva, TipGume tipGume)
+        public KonfiguracijaAutomobila() { }
+        public KonfiguracijaAutomobila(Timovi tim, double potrosnjaGuma, double potrosnjaGoriva, TipGume tipGume)
         {
-            this.tim = tim;
-            this.potrosnjaGuma = potrosnjaGuma;
-            this.potrosnjaGoriva = potrosnjaGoriva;
-            this.tipGume = tipGume;
+            this.Tim = tim;
+            this.PotrosnjaGuma = potrosnjaGuma;
+            this.PotrosnjaGoriva = potrosnjaGoriva;
+            this.TipGume = tipGume;
         }
     }
 }
