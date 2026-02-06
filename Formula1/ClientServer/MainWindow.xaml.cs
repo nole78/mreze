@@ -10,7 +10,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using Common;
+using Client.Modeli;
+using Client.Enumeracije;
 namespace ClientServer
 {
     /// <summary>
@@ -123,8 +124,10 @@ namespace ClientServer
                     }
 
                     var clientEndPoint = clientSocket.RemoteEndPoint;
-                    
-                    OtvoriUdpSoket(cancellationToken);
+                    if(udpSocket == null)
+                    {
+                        OtvoriUdpSoket(cancellationToken);
+                    }
                     
                     // ✅ SADA uveći broj
                     povezani[portIndex]++;

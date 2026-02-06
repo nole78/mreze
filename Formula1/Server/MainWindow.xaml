@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Server"
         mc:Ignorable="d"
-        Title="Direkcija Trke" Height="450" Width="800">
+        Title="Direkcija Trke" Height="500" Width="1200">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -17,6 +17,7 @@
             <ColumnDefinition/>
             <ColumnDefinition/>
             <ColumnDefinition/>
+            <ColumnDefinition Width="3*"/>
         </Grid.ColumnDefinitions>
 
         <Label x:Name="lNaslov" Content="DIREKCIJA TRKE" Grid.Row="0" Grid.ColumnSpan="2" Grid.Column="0" Margin="10" FontSize="20" VerticalContentAlignment="Center" FontWeight="Bold" FontFamily="Castellar"/>
@@ -32,6 +33,21 @@
             <TextBox x:Name="tbPort" Grid.Column="1"  Margin="5,5,10,5" TextWrapping="Wrap" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" FontSize="18" FontFamily="Bernard MT Condensed" BorderBrush="Black"/>
 
         </Grid>
-
+        <Grid Grid.Column="3" Grid.Row="1" Grid.RowSpan="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="tbVremena" Margin="0,0,10,5" Grid.Column="0" TextWrapping="Wrap" FontSize="18" FontFamily="Century Schoolbook" BorderBrush="Black" Background="#7FD1DC08"/>
+            <TextBox x:Name="tbNajVremena" Grid.Column="1" Margin="0,0,10,5" TextWrapping="Wrap" FontFamily="Century Schoolbook" FontSize="18" BorderBrush="Black" Background="#7F51118C"/>
+        </Grid>
+        <Grid Grid.Column="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" Content="VREMENA KRUGOVA" HorizontalAlignment="Left" VerticalAlignment="Center" FontFamily="Bernard MT Condensed" FontSize="20" FontWeight="Bold"/>
+            <Label Grid.Column="1" Content="NAJBOLJA VREMENA KRUGOVA" HorizontalAlignment="Left" VerticalAlignment="Center" FontWeight="Bold" FontFamily="Bernard MT Condensed" FontSize="20"/>
+        </Grid>
     </Grid>
 </Window>

@@ -8,6 +8,7 @@
         Title="MainWindow" Height="450" Width="800">
     <Grid x:Name="biranjeTima">
         <TextBox x:Name="chatBox" HorizontalAlignment="Left" Margin="90,135,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="615" Height="277"/>
+        <Button x:Name="btZahtevajBroj" Content="ZAHTEVAJ TRKAČKI BROJ" HorizontalAlignment="Left" Margin="90,102,0,0" VerticalAlignment="Top" FontWeight="Bold" FontSize="20" FontFamily="Century Schoolbook" Click="btZahtevajBroj_Click"/>
 
     </Grid>
 </Window>

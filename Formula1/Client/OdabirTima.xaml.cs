@@ -13,7 +13,8 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Common;
+using Client.Enumeracije;
+using Client.Modeli;
 namespace Client
 {
     /// <summary>
