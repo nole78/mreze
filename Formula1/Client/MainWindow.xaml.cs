@@ -26,10 +26,11 @@ namespace Client
         private CancellationTokenSource _cts;
         private Task _rxTask;
 
-        private int port = 0;
+        public int port = 0;
         public MainWindow()
         {
             InitializeComponent();
+            izaberiTim();
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

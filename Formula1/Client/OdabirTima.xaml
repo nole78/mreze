@@ -1,0 +1,17 @@
+﻿<Window x:Class="Client.OdabirTima"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Client"
+        mc:Ignorable="d"
+        Title="OdabirTima" Height="450" Width="800">
+    <Grid>
+        <Button x:Name="izaberiMercedes" Content="Mercedes" HorizontalAlignment="Left" Margin="90,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="Button_Click"/>
+        <Button x:Name="izaberiFerari" Content="Ferari" HorizontalAlignment="Left" Margin="245,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="izaberiFerari_Click"/>
+        <Button x:Name="izaberiReno" Content="Reno" HorizontalAlignment="Left" Margin="400,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="izaberiReno_Click"/>
+        <Button x:Name="izaberiHonda" Content="Honda" HorizontalAlignment="Left" Margin="555,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="izaberiHonda_Click"/>
+        <Label Content="Izaberi tim" HorizontalAlignment="Left" Margin="90,64,0,0" VerticalAlignment="Top"/>
+
+    </Grid>
+</Window>
