@@ -60,8 +60,14 @@ namespace Client
                 });
 
                 // Ponovo otvori prozor za izbor tima
-                if(bolid.Tim ==0)
-                    OtvoriOdabirTima();
+                if(bolid.Tim == Timovi.NEMA_TIM)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        OtvoriOdabirTima();
+                    });
+                }
+                    
             }
         }
 
@@ -131,10 +137,8 @@ namespace Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    chatBox.AppendText(poruka + "\n");
-                    chatBox.ScrollToEnd();
+                    OtvoriOdabirTima();
                 });
-                OtvoriOdabirTima();
             }
             else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
             {

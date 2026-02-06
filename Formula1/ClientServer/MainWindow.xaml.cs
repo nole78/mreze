@@ -100,10 +100,9 @@ namespace ClientServer
                     // Provjeri broj povezanih klijenta za ovaj port
                     int portIndex = port - 50000;
 
-                    // ✅ PRVO proveri PRE nego što dodaš
                     if (povezani[portIndex] >= 2)
                     {
-                        // Puni - odbij konekciju
+                       
                         var odbijPoruka = Encoding.UTF8.GetBytes("Nema više mesta u timu");
                         try
                         {
@@ -129,7 +128,7 @@ namespace ClientServer
                         OtvoriUdpSoket(cancellationToken);
                     }
                     
-                    // ✅ SADA uveći broj
+                   
                     povezani[portIndex]++;
 
                     if (portIndex == 0)  // Honda — port 50000
@@ -169,7 +168,7 @@ namespace ClientServer
                         EnableAutoButtonForTeam(3, idx);
                     }
 
-                    // Koristi Dispatcher za ispis u UI
+                    
                     Dispatcher.Invoke(() =>
                     {
                         konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
@@ -189,9 +188,8 @@ namespace ClientServer
                         Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri slanju poruke: {ex.Message}");
                     }
 
-                    // Pokreni handling za ovog klijenta na posebnom tredu
+                    _ = Task.Run(() => MonitorujKlijenta(clientSocket, portIndex));
 
-                    
                 }
                 catch (OperationCanceledException)
                 {
@@ -202,6 +200,79 @@ namespace ClientServer
                     Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
                 }
             }
+        }
+
+        private void MonitorujKlijenta(Socket clientSocket, int portIndex)
+        {
+            byte[] buffer = new byte[1];
+
+            while (clientSocket != null && clientSocket.Connected)
+            {
+                try
+                {
+                    // Pokušaj da pročitaš jedan bajt - ako vrati 0, klijent je otkačen
+                    int bytesReceived = clientSocket.Receive(buffer, SocketFlags.Peek);
+
+                    if (bytesReceived == 0)
+                    {
+                        // ✅ Klijent je otkačen!
+                        break;
+                    }
+
+                    Thread.Sleep(100);  // Čekaj pre nego što ponovi
+                }
+                catch (SocketException)
+                {
+                    // ✅ Greška = klijent je otkačen
+                    break;
+                }
+                catch (Exception)
+                {
+                    break;
+                }
+            }
+
+            // ✅ Klijent je otkačen - smanji brojač i disable dugme
+            lock (_lock)
+            {
+                povezani[portIndex]--;
+
+                Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                    "Klijent sa porta " + (50000 + portIndex) + " se otkačio (" + povezani[portIndex] + "/2)");
+
+                // Ukloni iz liste
+                var timLista = GetTimZaPort(portIndex);
+                if (timLista != null)
+                {
+                    timLista.RemoveAll(t => t.ep?.Equals(clientSocket.RemoteEndPoint) ?? false);
+                }
+
+                // ✅ Ako nema više klijenta, disable dugme
+                if (povezani[portIndex] == 0)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        DisableAutoButtonForTeam(portIndex);
+                    });
+                }
+
+                _clients.Remove(clientSocket);
+            }
+
+            // Zatvori socket
+            try { clientSocket.Shutdown(SocketShutdown.Both); } catch { }
+            try { clientSocket.Close(); } catch { }
+        }
+
+        private List<Trkaci> GetTimZaPort(int portIndex)
+        {
+            return portIndex switch
+            {
+                0 => Honda,      // port 50000
+                1 => Mercedes,   // port 50001
+                2 => Ferari,     // port 50002
+                3 => Reno,       // port 50003
+            };
         }
         private void Ispisi(string poruka)
         {
@@ -230,6 +301,10 @@ namespace ClientServer
                     client?.Close();
                 }
                 _clients.Clear();
+                if(udpSocket != null)
+                {
+                    udpSocket.Close();
+                }
             }
         }
 
@@ -249,70 +324,62 @@ namespace ClientServer
 
         }
 
-        private void OtvoriUdpSoket(CancellationToken cancellationToken)
+        private async void OtvoriUdpSoket(CancellationToken cancellationToken)
         {
-            if (udpSocket != null)
-                return;
-
             try
             {
-                // Otvori UDP uticnicu za ovog klijenta
+
                 udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
                 udpSocket.Bind(new IPEndPoint(IPAddress.Any, 50007));
                 udpSocket.Blocking = false;
+                Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] UDP soket otvoren na portu 50007");
 
-                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] UDP uticnica otvorena za port 50007");
-
-                byte[] buffer = new byte[4096];
-                EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    try
-                    {
-                        // Čitaj UDP poruke
-                        int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
-
-                        if (bytesReceived > 0)
-                        {
-                            string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-
-                            // Ispis u UI
-                            Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
-                                "[UDP port " + 50007 + "] Primljena poruka: " + receivedMessage);
-
-                        }
-                    }
-                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
-                    {
-                        // Nema dostupnih podataka, čekaj malo
-                        Thread.Sleep(10);
-                        continue;
-                    }
-                    catch (Exception ex)
-                    {
-                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP podataka: {ex.Message}");
-                        break;
-                    }
-                }
+                _ = Task.Run(() => ReceiveUdpLoop(cancellationToken));
             }
             catch (Exception ex)
             {
-                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri otvaranju UDP uticnice: {ex.Message}");
+                Ispisi($"Server greška: {ex.Message}");
             }
-               
         }
 
-        // Pomoćna funkcija — pronađi tim na osnovu porta
-        private List<Trkaci> GetTimZaPort(int portIndex)
+        private async Task ReceiveUdpLoop(CancellationToken cancellationToken)
         {
-            return portIndex switch
+            byte[] buffer = new byte[4096];
+            EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+
+            while (!cancellationToken.IsCancellationRequested && udpSocket != null)
             {
-                0 => Honda,      // port 50000
-                1 => Mercedes,   // port 50001
-                2 => Ferari,     // port 50002
-                3 => Reno,       // port 50003
-            };
+                try
+                {
+                    // Čitaj UDP poruke
+                    int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
+
+                    if (bytesReceived > 0)
+                    {
+                        string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
+
+                        // Ispis u UI
+                        Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                            "[UDP 50007] Primljena od " + remoteEP + ": " + receivedMessage);
+
+                        // Odgovori klijentu
+                        
+                        
+                    }
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    // Nema dostupnih podataka
+                    Thread.Sleep(10);
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP podataka: {ex.Message}");
+                    break;
+                }
+            }
         }
 
         // Pomoćna funkcija — enable auto dugme za tim (sa idx parametrom)
