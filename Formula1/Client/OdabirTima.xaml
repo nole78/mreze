@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Client"
         mc:Ignorable="d"
-        Title="OdabirTima" Height="450" Width="800">
+        Title="OdabirTima" Height="450" Width="800" Loaded="Window_Loaded">
     <Grid>
         <Button x:Name="izaberiMercedes" Content="Mercedes" HorizontalAlignment="Left" Margin="90,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="Button_Click"/>
         <Button x:Name="izaberiFerari" Content="Ferari" HorizontalAlignment="Left" Margin="245,130,0,0" VerticalAlignment="Top" Height="172" Width="150" Click="izaberiFerari_Click"/>

@@ -1,0 +1,19 @@
+﻿<Window x:Class="ClientServer.GarazaUnosParametaraTrke"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ClientServer"
+        mc:Ignorable="d"
+        Title="GarazaUnosParametaraTrke" Height="450" Width="800"
+        WindowStyle="ToolWindow"
+        ResizeMode="NoResize" Loaded="Window_Loaded">
+    <Grid>
+        <TextBox x:Name="TbDuzinaStaze" HorizontalAlignment="Left" Margin="185,140,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Label Content="Duzina staze(km)" HorizontalAlignment="Left" Margin="195,109,0,0" VerticalAlignment="Top"/>
+        <Label Content="Osnovno vreme kruga(s)" HorizontalAlignment="Right" Margin="0,109,175,0" VerticalAlignment="Top"/>
+        <TextBox x:Name="TbOVremeKruga" HorizontalAlignment="Right" Margin="0,140,185,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Button Content="Prosledi" HorizontalAlignment="Center" VerticalAlignment="Center" Height="42" Width="108" Click="Button_Click"/>
+
+    </Grid>
+</Window>

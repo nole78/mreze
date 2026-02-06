@@ -126,7 +126,10 @@ namespace Client
             // Ako server odbije konekciju, otvori ponovo izbor tima
             if (poruka.Contains("Nema više mesta u timu"))
             {
-                OtvoriOdabirTima();
+                Dispatcher.Invoke(() =>
+                {
+                    OtvoriOdabirTima();
+                });
             }else
             {
                 OtvoriUdpKonekciju();

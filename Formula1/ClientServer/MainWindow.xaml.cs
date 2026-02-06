@@ -10,7 +10,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-
+using Common;
 namespace ClientServer
 {
     /// <summary>
@@ -18,19 +18,33 @@ namespace ClientServer
     /// </summary>
     public partial class MainWindow : Window
     {
+        struct Trkaci
+        {
+            public Timovi tim;
+            public EndPoint ep;
+        }
+        private List<Trkaci> Honda = new List<Trkaci>();
+        private List<Trkaci> Mercedes = new List<Trkaci>();
+        private List<Trkaci> Ferari = new List<Trkaci>();
+        private List<Trkaci> Reno = new List<Trkaci>();
+        
         private readonly List<Socket> _listeners = new List<Socket>();
         private readonly List<Socket> _clients = new List<Socket>();
         private readonly object _lock = new object();
 
         private CancellationTokenSource _cts;
         private List<Task> _serverTasks;
-        
+        private Socket udpSocket = null;
+
         private readonly int[] _ports = { 50000, 50001, 50002, 50003};
         private int[] povezani = { 0, 0, 0, 0 };
 
+        private int DuzinaStaze = 0;
+        private double OsnovnoVremeKruga = 0;
         public MainWindow()
         {
             InitializeComponent();
+            PrikaziUnosParametaraTrka();
             this.Loaded += MainWindow_Loaded;
         }
 
@@ -70,7 +84,7 @@ namespace ClientServer
             }
             catch (Exception ex)
             {
-                IspisiGresku($"Server greška: {ex.Message}");
+                Ispisi($"Server greška: {ex.Message}");
             }
         }
 
@@ -85,10 +99,11 @@ namespace ClientServer
                     // Provjeri broj povezanih klijenta za ovaj port
                     int portIndex = port - 50000;
 
+                    // ✅ PRVO proveri PRE nego što dodaš
                     if (povezani[portIndex] >= 2)
                     {
                         // Puni - odbij konekciju
-                        var odbijPoruka = Encoding.UTF8.GetBytes("Nema više mesta u timu! Maksimalno 2 klijenta.\n");
+                        var odbijPoruka = Encoding.UTF8.GetBytes("Nema više mesta u timu");
                         try
                         {
                             await clientSocket.SendAsync(new ArraySegment<byte>(odbijPoruka), SocketFlags.None);
@@ -97,7 +112,7 @@ namespace ClientServer
 
                         clientSocket.Close();
 
-                        IspisiGresku("[" + DateTime.Now.ToString("HH:mm:ss") + "] Konekcija odbijena - tim je pun!");
+                        Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] Konekcija odbijena - tim je pun!");
 
                         continue;  // Nastavi sa čekanjem sledećeg klijenta
                     }
@@ -108,9 +123,48 @@ namespace ClientServer
                     }
 
                     var clientEndPoint = clientSocket.RemoteEndPoint;
-
-                    // Uveći broj povezanih
+                    
+                    OtvoriUdpSoket(cancellationToken);
+                    
+                    // ✅ SADA uveći broj
                     povezani[portIndex]++;
+
+                    if (portIndex == 0)  // Honda — port 50000
+                    {
+                        Trkaci trkaci = new Trkaci();
+                        trkaci.tim = Timovi.Honda;
+                        trkaci.ep = clientEndPoint;
+                        Honda.Add(trkaci);
+                        int idx = Honda.Count;
+                        EnableAutoButtonForTeam(0, idx);
+                    }
+                    else if(portIndex == 1)  // Mercedes — port 50001
+                    {
+                        Trkaci trkaci = new Trkaci();
+                        trkaci.tim = Timovi.Mercedes;
+                        trkaci.ep = clientEndPoint;
+                        Mercedes.Add(trkaci);
+                        int idx = Mercedes.Count;
+                        EnableAutoButtonForTeam(1, idx);
+                    }
+                    else if (portIndex == 2)  // Ferari — port 50002
+                    {
+                        Trkaci trkaci = new Trkaci();
+                        trkaci.tim = Timovi.Ferari;
+                        trkaci.ep = clientEndPoint;
+                        Ferari.Add(trkaci);
+                        int idx = Ferari.Count;
+                        EnableAutoButtonForTeam(2, idx);
+                    }
+                    else if (portIndex == 3)  // Reno — port 50003
+                    {
+                        Trkaci trkaci = new Trkaci();
+                        trkaci.tim = Timovi.Reno;
+                        trkaci.ep = clientEndPoint;
+                        Reno.Add(trkaci);
+                        int idx = Reno.Count;
+                        EnableAutoButtonForTeam(3, idx);
+                    }
 
                     // Koristi Dispatcher za ispis u UI
                     Dispatcher.Invoke(() =>
@@ -129,11 +183,12 @@ namespace ClientServer
                     }
                     catch (Exception ex)
                     {
-                        IspisiGresku($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri slanju poruke: {ex.Message}");
+                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri slanju poruke: {ex.Message}");
                     }
 
                     // Pokreni handling za ovog klijenta na posebnom tredu
-                    //_ = Task.Run(() => HandleClientAsync(clientSocket, port, cancellationToken), cancellationToken);
+
+                    
                 }
                 catch (OperationCanceledException)
                 {
@@ -141,11 +196,11 @@ namespace ClientServer
                 }
                 catch (Exception ex)
                 {
-                    IspisiGresku($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
+                    Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
                 }
             }
         }
-        private void IspisiGresku(string poruka)
+        private void Ispisi(string poruka)
         {
             Dispatcher.Invoke(() =>
             {
@@ -173,6 +228,157 @@ namespace ClientServer
                 }
                 _clients.Clear();
             }
+        }
+
+        private void PrikaziUnosParametaraTrka()
+        {
+            GarazaUnosParametaraTrke gu = new GarazaUnosParametaraTrke();
+
+            if(gu.ShowDialog() == true)
+            {
+                DuzinaStaze = gu.DuzinaStaze;
+                OsnovnoVremeKruga = gu.OsnovnoVremeKruga;
+            }
+        }
+
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void OtvoriUdpSoket(CancellationToken cancellationToken)
+        {
+            if (udpSocket != null)
+                return;
+
+            try
+            {
+                // Otvori UDP uticnicu za ovog klijenta
+                udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                udpSocket.Bind(new IPEndPoint(IPAddress.Any, 50007));
+                udpSocket.Blocking = false;
+
+                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] UDP uticnica otvorena za port 50007");
+
+                byte[] buffer = new byte[4096];
+                EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        // Čitaj UDP poruke
+                        int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
+
+                        if (bytesReceived > 0)
+                        {
+                            string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
+
+                            // Ispis u UI
+                            Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                                "[UDP port " + 50007 + "] Primljena poruka: " + receivedMessage);
+
+                        }
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                    {
+                        // Nema dostupnih podataka, čekaj malo
+                        Thread.Sleep(10);
+                        continue;
+                    }
+                    catch (Exception ex)
+                    {
+                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP podataka: {ex.Message}");
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri otvaranju UDP uticnice: {ex.Message}");
+            }
+               
+        }
+
+        // Pomoćna funkcija — pronađi tim na osnovu porta
+        private List<Trkaci> GetTimZaPort(int portIndex)
+        {
+            return portIndex switch
+            {
+                0 => Honda,      // port 50000
+                1 => Mercedes,   // port 50001
+                2 => Ferari,     // port 50002
+                3 => Reno,       // port 50003
+            };
+        }
+
+        // Pomoćna funkcija — enable auto dugme za tim (sa idx parametrom)
+        private void EnableAutoButtonForTeam(int portIndex, int idx)
+        {
+            string teamName = GetTeamName(portIndex);
+            var (autoButton1, autoButton2) = FindAutoButtons(teamName, idx);
+            
+            if (autoButton1 != null)
+            {
+                autoButton1.IsEnabled = true;
+                autoButton1.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
+            }
+            if (autoButton2 != null)
+            {
+                autoButton2.IsEnabled = true;
+                autoButton2.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
+            }
+        }
+
+        // Pomoćna funkcija — disable auto dugme za tim (bez idx parametra)
+        private void DisableAutoButtonForTeam(int portIndex)
+        {
+            string teamName = GetTeamName(portIndex);
+            Ispisi($"[AUTO] Onemogućen auto dugme za tim: {teamName}");
+
+            var (autoButton1, autoButton2) = FindAutoButtonsAll(teamName);
+            
+            if (autoButton1 != null)
+            {
+                autoButton1.IsEnabled = false;
+                autoButton1.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gray);
+            }
+            if (autoButton2 != null)
+            {
+                autoButton2.IsEnabled = false;
+                autoButton2.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gray);
+            }
+        }
+
+        // Pomoćna funkcija — pronađi auto dugme po imenu tima i idx-u
+        private (Button, Button) FindAutoButtons(string teamName, int idx)
+        {
+            var btn1 = (Button)this.FindName($"btnPosalji{teamName}{idx}");
+            var btn2 = (Button)this.FindName($"btnKontrolisi{teamName}{idx}");
+            return (btn1, btn2);
+        }
+
+        // Pomoćna funkcija — pronađi sve auto dugme po imenu tima (za disable)
+        private (Button, Button) FindAutoButtonsAll(string teamName)
+        {
+            // Ako trebaš sve dugme za taj tim, možeš koristiti idx 1 kao default
+            // ili pronaći sve dinamički
+            var btn1 = (Button)this.FindName($"btnPosalji{teamName}1");
+            var btn2 = (Button)this.FindName($"btnKontrolisi{teamName}1");
+            return (btn1, btn2);
+        }
+
+        // Pomoćna funkcija — vrati ime tima na osnovu porta
+        private string GetTeamName(int portIndex)
+        {
+            return portIndex switch
+            {
+                0 => "Honda",
+                1 => "Mercedes",
+                2 => "Ferari",
+                3 => "Reno",
+                _ => "Unknown"
+            };
         }
     }
 }

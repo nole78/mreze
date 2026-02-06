@@ -13,13 +13,13 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
-using Common;
-namespace Client
+
+namespace ClientServer
 {
     /// <summary>
-    /// Interaction logic for OdabirTima.xaml
+    /// Interaction logic for GarazaUnosParametaraTrke.xaml
     /// </summary>
-    public partial class OdabirTima : Window
+    public partial class GarazaUnosParametaraTrke : Window
     {
         private const int GWL_STYLE = -16;
         private const int WS_SYSMENU = 0x80000;
@@ -27,52 +27,32 @@ namespace Client
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
-
-        public Timovi izabraniTim { get; set; }
-        public OdabirTima()
+        public int DuzinaStaze { get; set; } = 0;
+        public double OsnovnoVremeKruga { get; set; } = 0;
+        public GarazaUnosParametaraTrke()
         {
             InitializeComponent();
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)
         {
-            izaberiTim(Timovi.Mercedes);
-        }
-
-        private void izaberiFerari_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Ferari);
-        }
-
-        private void izaberiReno_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Reno);
-        }
-
-        private void izaberiHonda_Click(object sender, RoutedEventArgs e)
-        {
-            izaberiTim(Timovi.Honda);
-        }
-
-        private void izaberiTim(Timovi tim)
-        {
-            int port = -1;
-
-            if (tim == Timovi.Honda)
-                port = 50000;
-            else if (tim == Timovi.Mercedes)
-                port = 50001;
-            else if (tim == Timovi.Ferari)
-                port = 50002;
-            else if (tim == Timovi.Reno)
-                port = 50003;
-
-            if (port != -1)
+            if (TbDuzinaStaze.Text.Length == 0 || TbOVremeKruga.Text.Length == 0)
             {
-                izabraniTim = tim;
-                // Zatvori prozor i vrati rezultat
-                this.DialogResult = true;
-                this.Close();
+                MessageBox.Show("Morate popuniti polja!");
+            }
+            else
+            {
+                DuzinaStaze = Int32.Parse(TbDuzinaStaze.Text);
+                OsnovnoVremeKruga = Double.Parse(TbOVremeKruga.Text);
+                if (DuzinaStaze <= 0 || OsnovnoVremeKruga <= 0)
+                {
+                    MessageBox.Show("Polja ne smeju biti 0 ili manja od 0!");
+                }
+                else
+                {
+                    this.DialogResult = true;
+                    this.Close();
+                }
             }
         }
 
