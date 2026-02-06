@@ -15,8 +15,8 @@ namespace Client.Modeli
         public TipGume TipGume { get; set; } = 0;
         public double PotrosnjaGuma { get; set; } = 0;
         public double PotrosnjaGoriva { get; set; } = 0;
-        public int StanjeGoriva { get; set; } = 0;
-        public int StanjeGuma { get; set; } = 0;
+        public double StanjeGoriva { get; set; } = 0;
+        public double StanjeGuma { get; set; } = 0;
 
         public KonfiguracijaAutomobila() { }
         public KonfiguracijaAutomobila(Timovi tim, double potrosnjaGuma, double potrosnjaGoriva, TipGume tipGume)

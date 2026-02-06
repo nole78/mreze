@@ -28,7 +28,7 @@ namespace Client
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
         private string? trkacki_broj = "";
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
-        private double osnovno_vreme = 0;
+        private double osnovno_vreme = 0, duzina_kruga;
         private bool na_stazi = false, povezanSaGrazom = false;
         private int br_sporog_kruga = 0, port = 0;
 
@@ -121,9 +121,40 @@ namespace Client
             {
                 ObavestiSilazak();
             }
-            else if(poruka == "izadji na stazu")
+            else if(poruka.Contains("izadji na stazu"))
             {
-                Vozi();
+                var niz = poruka.Split(' ');
+                if (niz.Length == 4)
+                {
+                    var pom = niz[3].Split(',');
+                    double gorivo = 0;
+                    if(double.TryParse(pom[1], out gorivo) && gorivo >0)
+                    {
+                        switch(pom[0])
+                        {
+                            case "M":
+                                bolid.StanjeGuma = 100;
+                                bolid.StanjeGoriva = gorivo;
+                                break;
+                            case "S":
+                                bolid.StanjeGuma = 70;
+                                bolid.StanjeGoriva = gorivo;
+                                break;
+                            case "H":
+                                bolid.StanjeGuma = 50;
+                                bolid.StanjeGoriva = gorivo;
+                                break;
+                            default:
+                                Dispatcher.Invoke(() =>
+                                {
+                                    chatBox.AppendText($"[GREŠKA] Ne mogu da parsiram tip gume.\n");
+                                    chatBox.ScrollToEnd();
+                                });
+                                return;
+                        }
+                        Vozi();
+                    }
+                }
             }
             else if(poruka == "brzo" || poruka == "sporo" || poruka == "normalno")
             {
@@ -145,21 +176,30 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
-            else if (!double.TryParse(poruka, out osnovno_vreme))
+            else if (poruka.Contains("specifikacije kruga: "))
             {
-                Dispatcher.Invoke(() =>
+                var niz = poruka.Split(' ');
+                if (niz.Length == 4)
                 {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da parsiram osnovno vreme.\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-            else
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Postavljeno osnovno vreme: {osnovno_vreme}\n");
-                    chatBox.ScrollToEnd();
-                });
+                    if (double.TryParse(niz[3], out double duzina) && duzina > 0 && double.TryParse(niz[4],out double vreme) && osnovno_vreme > 10)
+                    {
+                        duzina_kruga = duzina;
+                        osnovno_vreme = vreme;
+                        Dispatcher.Invoke(() =>
+                        {
+                            chatBox.AppendText($"[INFO] Postavljene specifikacije kruga: dužina={duzina}m, osnovno vreme={vreme}s\n");
+                            chatBox.ScrollToEnd();
+                        });
+                    }
+                    else
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            chatBox.AppendText($"[GREŠKA] Ne mogu da parsiram dužinu kruga.\n");
+                            chatBox.ScrollToEnd();
+                        });
+                    }
+                }
             }
 
         }
@@ -509,7 +549,10 @@ namespace Client
                 {
                     vreme += 0.2 * (++br_sporog_kruga);
                 }
-                return vreme;
+
+                bolid.StanjeGoriva -= duzina_kruga * bolid.PotrosnjaGoriva;
+                bolid.StanjeGuma -= duzina_kruga * bolid.PotrosnjaGuma;
+            return vreme;
         }
         private void VoziLoop(CancellationToken token)
         {
