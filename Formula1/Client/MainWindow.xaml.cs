@@ -12,7 +12,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using static System.Net.Mime.MediaTypeNames;
-using Common;
+using Client.Enumeracije;
+using Client.Modeli;
+
 namespace Client
 {
     /// <summary>
@@ -20,11 +22,15 @@ namespace Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Socket сокет;
-        private Socket UdpSoket;
-        private CancellationTokenSource _cts;
-        private Task _rxTask;
+        private Socket? сокет;
+        private Socket? UdpSoket;
+        private CancellationTokenSource? _cts;
+        private Task? _rxTask;
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
+        private string? trkacki_broj = "";
+        private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
+        double osnovno_vreme = 0;
+
 
         public int port = 0;
         public MainWindow()
@@ -54,7 +60,8 @@ namespace Client
                 });
 
                 // Ponovo otvori prozor za izbor tima
-                OtvoriOdabirTima();
+                if(bolid.Tim ==0)
+                    OtvoriOdabirTima();
             }
         }
 
@@ -64,7 +71,7 @@ namespace Client
 
             while (!token.IsCancellationRequested)
             {
-                Socket s = сокет;
+                Socket? s = сокет;
                 if (s == null) break;
 
                 try
@@ -117,20 +124,39 @@ namespace Client
 
         private void ObradiPoruku(string poruka)
         {
-            Dispatcher.Invoke(() =>
-            {
-                chatBox.AppendText(poruka + "\n");
-                chatBox.ScrollToEnd();
-            });
-
             // Ako server odbije konekciju, otvori ponovo izbor tima
+            int broj;
+
             if (poruka.Contains("Nema više mesta u timu"))
             {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText(poruka + "\n");
+                    chatBox.ScrollToEnd();
+                });
                 OtvoriOdabirTima();
-            }else
+            }
+            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
+            {
+                trkacki_broj = broj.ToString();
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else if(bolid.Tim == 0)
             {
                 OtvoriUdpKonekciju();
-            }    
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText(poruka + "\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
         }
 
         private void Disconnect()
@@ -156,6 +182,30 @@ namespace Client
             }
         }
 
+        public void RacunajPotrosnju(Timovi tim)
+        {
+            if (tim == Timovi.Mercedes)
+            {
+                bolid.PotrosnjaGuma = 0.3;
+                bolid.PotrosnjaGoriva = 0.6;
+            }
+            else if (tim == Timovi.Ferari)
+            {
+                bolid.PotrosnjaGuma = 0.3;
+                bolid.PotrosnjaGoriva = 0.5;
+            }
+            else if (tim == Timovi.Reno)
+            {
+                bolid.PotrosnjaGuma = 0.4;
+                bolid.PotrosnjaGoriva = 0.7;
+            }
+            else if (tim == Timovi.Honda)
+            {
+                bolid.PotrosnjaGuma = 0.2;
+                bolid.PotrosnjaGoriva = 0.6;
+            }
+        }
+
         private void OtvoriOdabirTima()
         {
             OdabirTima odabirTima = new OdabirTima();
@@ -164,27 +214,7 @@ namespace Client
             {
                 Timovi tim = odabirTima.izabraniTim;
                 bolid.Tim = tim;
-                
-                if(tim == Timovi.Mercedes)
-                {
-                    bolid.PotrosnjaGuma = 0.3;
-                    bolid.PotrosnjaGoriva = 0.6;
-                }
-                else if(tim == Timovi.Ferari)
-                {
-                    bolid.PotrosnjaGuma = 0.3;
-                    bolid.PotrosnjaGoriva = 0.5;
-                }
-                else if (tim == Timovi.Reno)
-                {
-                    bolid.PotrosnjaGuma = 0.4;
-                    bolid.PotrosnjaGoriva = 0.7;
-                }
-                else if(tim == Timovi.Honda)
-                {
-                    bolid.PotrosnjaGuma = 0.2;
-                    bolid.PotrosnjaGoriva = 0.6;
-                }
+                RacunajPotrosnju(tim);
 
                 if (tim == Timovi.Honda)
                     port = 50000;
@@ -213,6 +243,181 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
+        }
+
+        // DAVID
+        private bool PosaljiPorukuTcp(string poruka)
+        {
+            if (сокет != null && сокет.Connected)
+            {
+                byte[] data = Encoding.UTF8.GetBytes(poruka);
+                try
+                {
+                    int n = сокет.Send(data);
+                    if (n == 0)
+                        return false;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA pri slanju] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                    });
+                    return false;
+                }
+            }
+            else
+                return false;
+        }
+        private void ZahtevajTrkackiBroj()
+        {
+            if(trkacki_broj != string.Empty)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Već imate trkački broj: {trkacki_broj}\n");
+                    chatBox.ScrollToEnd();
+                });
+                return;
+            }
+            TcpKonekcija(59000);
+            string tim;
+            if(bolid.Tim == 0)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Niste izabrali tim.\n");
+                    chatBox.ScrollToEnd();
+                });
+                return;
+            }
+            switch (bolid.Tim)
+            {
+                case Timovi.Mercedes:
+                    tim = "Mercedes";
+                    break;
+                case Timovi.Ferari:
+                    tim = "Ferari";
+                    break;
+                case Timovi.Reno:
+                    tim = "Reno";
+                    break;
+                case Timovi.Honda:
+                    tim = "Honda";
+                    break;
+                default:
+                    tim = "Nepoznat";
+                    break;
+            }
+            if(PosaljiPorukuTcp(tim))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Poslat zahtev za trkački broj: {tim}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem zahtev za trkački broj.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+
+        }
+        private void PosaljiVremeKruga(double vreme)
+        {
+            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + vreme.ToString()))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem vreme kruga.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Poslato vreme kruga: {vreme}.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+        }
+
+        int br_sporog_kruga = 0;
+        private double IzracunajVreme(int br_kruga)
+        {
+            double tempo_guma = 0,tempo_goriva = 0;
+            switch(bolid.StanjeGuma)
+            {
+                case 0:
+                    tempo_guma = 1.2 * br_kruga;
+                    break;
+                case 1:
+                    tempo_guma = br_kruga;
+                    break;
+                case 2:
+                    tempo_guma = 0.8 * br_kruga;
+                    break;
+            }
+            tempo_goriva = 1 / bolid.StanjeGoriva;
+
+            if (bolid.StanjeGuma < 35)
+                tempo_guma -= 0.6;
+            if(nacinVoznje == NacinVoznje.Brzo)
+            {
+                RacunajPotrosnju(bolid.Tim);
+                bolid.PotrosnjaGuma += 0.3;
+                bolid.PotrosnjaGoriva += 0.3;
+            }
+            else
+            {
+                RacunajPotrosnju(bolid.Tim);
+            }
+            if(osnovno_vreme == 0)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Osnovno vreme nije postavljeno.\n");
+                    chatBox.ScrollToEnd();
+                });
+                return 0;
+            }
+            double vreme = osnovno_vreme - tempo_guma - tempo_goriva;
+            if (nacinVoznje == NacinVoznje.Sporo)
+            {
+                vreme += 0.2 * (++br_sporog_kruga);
+            }
+            return vreme;
+        }
+        private void ObavestiSilazak()
+        {
+            if (!PosaljiPorukuTcp("silazim sa staze"))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+        }
+
+        private void btZahtevajBroj_Click(object sender, RoutedEventArgs e)
+        {
+            ZahtevajTrkackiBroj();
         }
     }
 }
