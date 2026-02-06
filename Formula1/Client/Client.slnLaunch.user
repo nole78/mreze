@@ -7,6 +7,10 @@
         "Action": "Start"
       },
       {
+        "Path": "..\\Server\\Server.csproj",
+        "Action": "Start"
+      },
+      {
         "Path": "..\\ClientServer\\ClientServer.csproj",
         "Action": "Start"
       }
