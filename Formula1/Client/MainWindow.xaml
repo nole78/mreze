@@ -6,13 +6,13 @@
         xmlns:local="clr-namespace:Client"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
-    <Grid>
+    <Grid x:Name="biranjeTima">
         <Button x:Name="izaberiMercedes" Content="Mercedes" HorizontalAlignment="Left" Margin="90,130,0,0" VerticalAlignment="Top" Height="106" Width="150" Click="Button_Click"/>
         <Button x:Name="izaberiFerari" Content="Ferari" HorizontalAlignment="Left" Margin="245,130,0,0" VerticalAlignment="Top" Height="106" Width="150" Click="izaberiFerari_Click"/>
         <Button x:Name="izaberiReno" Content="Reno" HorizontalAlignment="Left" Margin="400,130,0,0" VerticalAlignment="Top" Height="106" Width="150" Click="izaberiReno_Click"/>
         <Button x:Name="izaberiHonda" Content="Honda" HorizontalAlignment="Left" Margin="555,130,0,0" VerticalAlignment="Top" Height="106" Width="150" Click="izaberiHonda_Click"/>
         <Label Content="Izaberi tim" HorizontalAlignment="Left" Margin="90,64,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="chatBox" HorizontalAlignment="Left" Margin="90,283,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="615" Height="129"/>
+        <TextBox x:Name="chatBox" HorizontalAlignment="Left" Margin="90,283,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="615" Height="129"/>
 
     </Grid>
 </Window>

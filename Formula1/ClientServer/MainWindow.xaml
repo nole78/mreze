@@ -7,6 +7,11 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
+        <TextBox HorizontalAlignment="Left" Margin="185,140,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <Label Content="Duzina staze" HorizontalAlignment="Left" Margin="207,109,0,0" VerticalAlignment="Top"/>
+        <Label Content="Osnovno vreme kruga" HorizontalAlignment="Right" Margin="0,109,181,0" VerticalAlignment="Top"/>
+        <TextBox HorizontalAlignment="Right" Margin="480,140,185,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
+        <TextBox x:Name="konzolaGaraza" HorizontalAlignment="Center" Margin="0,230,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="665" Height="194"/>
 
     </Grid>
 </Window>

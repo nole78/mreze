@@ -11,6 +11,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using static System.Net.Mime.MediaTypeNames;
 
 
 
@@ -95,6 +96,8 @@ namespace Client
                     }
 
                     string text = Encoding.UTF8.GetString(buf, 0, n);
+                    ObradiPoruku(text);
+                    
                 }
                 catch (SocketException ex)
                 {
@@ -108,6 +111,21 @@ namespace Client
                 }
             }
         }
+
+        private void ObradiPoruku(string poruka)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                chatBox.AppendText(poruka + "\n");
+                chatBox.ScrollToEnd();
+            });
+
+            if(poruka == "Nema više mesta u timu! Maksimalno 2 klijenta.")
+            {
+
+            }
+        }
+        
         private void Disconnect()
         {
             try
