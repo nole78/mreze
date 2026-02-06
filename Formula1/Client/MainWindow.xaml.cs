@@ -23,8 +23,8 @@ namespace Client
     public partial class MainWindow : Window
     {
         private Socket? сокет, UdpSoket;
-        private CancellationTokenSource? _cts,_cts2;
-        private Task? _rxTask,_udpTask;
+        private CancellationTokenSource? _cts,_cts2,_cts3;
+        private Task? _rxTask,_udpTask,_voziTask;
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
         private string? trkacki_broj = "";
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
@@ -66,7 +66,6 @@ namespace Client
                     });            
             }
         }
-
         private void ReceiveLoopTcp(CancellationToken token)
         {
             povezanSaGrazom = true;
@@ -111,7 +110,6 @@ namespace Client
                 }
             }
         }
-
         public void ObradiUdpPoruku(string poruka)
         {
             Dispatcher.Invoke(() =>
@@ -127,7 +125,27 @@ namespace Client
             {
                 Vozi();
             }
-            else if(!double.TryParse(poruka, out osnovno_vreme))
+            else if(poruka == "brzo" || poruka == "sporo" || poruka == "normalno")
+            {
+                switch (poruka)
+                {
+                    case "brzo":
+                        nacinVoznje = NacinVoznje.Brzo;
+                        break;
+                    case "sporo":
+                        nacinVoznje = NacinVoznje.Sporo;
+                        break;
+                    case "normalno":
+                        nacinVoznje = NacinVoznje.Normalno;
+                        break;
+                }
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Promenjen način vožnje: {poruka}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else if (!double.TryParse(poruka, out osnovno_vreme))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -135,8 +153,16 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
-        }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Postavljeno osnovno vreme: {osnovno_vreme}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
 
+        }
         private void ReceiveLoopUdp(CancellationToken token,EndPoint senderEP)
         {
             byte[] buf = new byte[4096];
@@ -179,7 +205,6 @@ namespace Client
                 }
             }
         }
-
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -194,7 +219,6 @@ namespace Client
             });
 
         }
-
         private void ObradiPoruku(string poruka)
         {
             // Ako server odbije konekciju, otvori ponovo izbor tima
@@ -230,7 +254,6 @@ namespace Client
                 });
             }
         }
-
         private void Disconnect()
         {
             try
@@ -253,7 +276,6 @@ namespace Client
                 });
             }
         }
-
         public void RacunajPotrosnju(Timovi tim)
         {
             if (tim == Timovi.Mercedes)
@@ -277,7 +299,6 @@ namespace Client
                 bolid.PotrosnjaGoriva = 0.6;
             }
         }
-
         private void OtvoriOdabirTima()
         {
             OdabirTima odabirTima = new OdabirTima();
@@ -333,6 +354,32 @@ namespace Client
                     Dispatcher.Invoke(() =>
                     {
                         chatBox.AppendText($"[GREŠKA pri slanju] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                    });
+                    return false;
+                }
+            }
+            else
+                return false;
+        }
+        private bool PosaljiPorukuUdp(string poruka)
+        {
+            if (UdpSoket != null)
+            {
+                byte[] data = Encoding.UTF8.GetBytes(poruka);
+                IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
+                try
+                {
+                    int n = UdpSoket.SendTo(data, destinationEP);
+                    if (n == 0)
+                        return false;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA pri slanju UDP] {ex.Message}\n");
                         chatBox.ScrollToEnd();
                     });
                     return false;
@@ -420,50 +467,66 @@ namespace Client
         }
         private double IzracunajVreme(int br_kruga)
         {
-            double tempo_guma = 0,tempo_goriva = 0;
-            switch(bolid.StanjeGuma)
-            {
-                case 0:
-                    tempo_guma = 1.2 * br_kruga;
-                    break;
-                case 1:
-                    tempo_guma = br_kruga;
-                    break;
-                case 2:
-                    tempo_guma = 0.8 * br_kruga;
-                    break;
-            }
-            tempo_goriva = 1 / bolid.StanjeGoriva;
-
-            if (bolid.StanjeGuma < 35)
-                tempo_guma -= 0.6;
-            if(nacinVoznje == NacinVoznje.Brzo)
-            {
-                RacunajPotrosnju(bolid.Tim);
-                bolid.PotrosnjaGuma += 0.3;
-                bolid.PotrosnjaGoriva += 0.3;
-            }
-            else
-            {
-                RacunajPotrosnju(bolid.Tim);
-            }
-            if(osnovno_vreme == 0)
-            {
-                Dispatcher.Invoke(() =>
+            double vreme = 0;
+                double tempo_guma = 0, tempo_goriva = 0;
+                switch (bolid.StanjeGuma)
                 {
-                    chatBox.AppendText($"[GREŠKA] Osnovno vreme nije postavljeno.\n");
-                    chatBox.ScrollToEnd();
-                });
-                return 0;
-            }
-            double vreme = osnovno_vreme - tempo_guma - tempo_goriva;
-            if (nacinVoznje == NacinVoznje.Sporo)
-            {
-                vreme += 0.2 * (++br_sporog_kruga);
-            }
-            return vreme;
-        }
+                    case 0:
+                        tempo_guma = 1.2 * br_kruga;
+                        break;
+                    case 1:
+                        tempo_guma = br_kruga;
+                        break;
+                    case 2:
+                        tempo_guma = 0.8 * br_kruga;
+                        break;
+                }
+                tempo_goriva = 1 / bolid.StanjeGoriva;
 
+                if (bolid.StanjeGuma < 35)
+                    tempo_guma -= 0.6;
+                if (nacinVoznje == NacinVoznje.Brzo)
+                {
+                    RacunajPotrosnju(bolid.Tim);
+                    bolid.PotrosnjaGuma += 0.3;
+                    bolid.PotrosnjaGoriva += 0.3;
+                }
+                else
+                {
+                    RacunajPotrosnju(bolid.Tim);
+                }
+                if (osnovno_vreme == 0)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA] Osnovno vreme nije postavljeno.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                    return 0;
+                }
+                vreme = osnovno_vreme - tempo_guma - tempo_goriva;
+                if (nacinVoznje == NacinVoznje.Sporo)
+                {
+                    vreme += 0.2 * (++br_sporog_kruga);
+                }
+                return vreme;
+        }
+        private void VoziLoop(CancellationToken token)
+        {
+            na_stazi = true;
+            int krug = 1;
+            while (!token.IsCancellationRequested)
+            {
+                double vreme_kruga = IzracunajVreme(krug);
+                if (vreme_kruga == 0)
+                    break;
+                PosaljiVremeKruga(vreme_kruga);
+                 krug++;
+                Thread.Sleep((int)(vreme_kruga*1000)); // Simulacija vremena kruga
+                PosaljiVremeKruga(vreme_kruga);
+                PosaljiPorukuUdp("gume: " + bolid.PotrosnjaGuma + " gorivo: " + bolid.PotrosnjaGoriva);
+            }
+        }
         private void Vozi()
         {
             if (trkacki_broj == string.Empty)
@@ -484,8 +547,8 @@ namespace Client
                 });
                 return;
             }
-            double vreme_kruga = IzracunajVreme(1);
-            PosaljiVremeKruga(vreme_kruga);
+            _cts3 = new CancellationTokenSource();
+            _voziTask = Task.Run(() => VoziLoop(_cts3.Token));
         }
         private void ObavestiSilazak()
         {
@@ -508,12 +571,10 @@ namespace Client
                 });
             }
         }
-
         private void btZahtevajBroj_Click(object sender, RoutedEventArgs e)
         {
             ZahtevajTrkackiBroj();
         }
-
         protected override void OnClosed(EventArgs e)
         {
             UdpSoket?.Close();
