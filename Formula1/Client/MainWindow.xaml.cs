@@ -22,17 +22,16 @@ namespace Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Socket? сокет;
-        private Socket? UdpSoket;
-        private CancellationTokenSource? _cts;
-        private Task? _rxTask;
+        private Socket? сокет, UdpSoket;
+        private CancellationTokenSource? _cts,_cts2;
+        private Task? _rxTask,_udpTask;
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
         private string? trkacki_broj = "";
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
-        double osnovno_vreme = 0;
+        private double osnovno_vreme = 0;
+        private bool na_stazi = false, povezanSaGrazom = false;
+        private int br_sporog_kruga = 0, port = 0;
 
-
-        public int port = 0;
         public MainWindow()
         {
             InitializeComponent();
@@ -60,16 +59,17 @@ namespace Client
                 });
 
                 // Ponovo otvori prozor za izbor tima
-
-                Dispatcher.Invoke(() =>
-                {
-                    OtvoriOdabirTima();
-                });            
+                if(!povezanSaGrazom)
+                    Dispatcher.Invoke(() =>
+                    {
+                        OtvoriOdabirTima();
+                    });            
             }
         }
 
         private void ReceiveLoopTcp(CancellationToken token)
         {
+            povezanSaGrazom = true;
             byte[] buf = new byte[4096];
 
             while (!token.IsCancellationRequested)
@@ -112,10 +112,80 @@ namespace Client
             }
         }
 
+        public void ObradiUdpPoruku(string poruka)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                chatBox.AppendText($"[UDP] {poruka}\n");
+                chatBox.ScrollToEnd();
+            });
+            if(poruka == "sidji sa staze")
+            {
+                ObavestiSilazak();
+            }
+            else if(poruka == "izadji na stazu")
+            {
+                Vozi();
+            }
+            else if(!double.TryParse(poruka, out osnovno_vreme))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da parsiram osnovno vreme.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+        }
+
+        private void ReceiveLoopUdp(CancellationToken token,EndPoint senderEP)
+        {
+            byte[] buf = new byte[4096];
+            while (!token.IsCancellationRequested)
+            {
+                Socket? s = UdpSoket;
+                if (s == null) 
+                    break;
+                try
+                {
+                    int n = s.ReceiveFrom(buf,ref senderEP);
+                    if (n == 0)
+                    {
+                        Dispatcher.Invoke(() => Disconnect());
+                        break;
+                    }
+
+                    string text = Encoding.UTF8.GetString(buf, 0, n);
+                    ObradiUdpPoruku(text);
+                }
+                catch (SocketException ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                        Disconnect();
+                    });
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
+                        chatBox.ScrollToEnd();
+                        Disconnect();
+                    });
+                    break;
+                }
+            }
+        }
+
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, 50005);
+            _cts2 = new CancellationTokenSource();
+            _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
 
             Dispatcher.Invoke(() =>
             {
@@ -148,6 +218,7 @@ namespace Client
             }
             else if(bolid.Tim == 0)
             {
+                povezanSaGrazom = true;
                 OtvoriUdpKonekciju();
             }
             else
@@ -245,8 +316,6 @@ namespace Client
                 });
             }
         }
-
-        // DAVID
         private bool PosaljiPorukuTcp(string poruka)
         {
             if (сокет != null && сокет.Connected)
@@ -349,8 +418,6 @@ namespace Client
                 });
             }
         }
-
-        int br_sporog_kruga = 0;
         private double IzracunajVreme(int br_kruga)
         {
             double tempo_guma = 0,tempo_goriva = 0;
@@ -396,8 +463,34 @@ namespace Client
             }
             return vreme;
         }
+
+        private void Vozi()
+        {
+            if (trkacki_broj == string.Empty)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Nemate trkački broj.\n");
+                    chatBox.ScrollToEnd();
+                });
+                return;
+            }
+            if(na_stazi)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Već ste na stazi.\n");
+                    chatBox.ScrollToEnd();
+                });
+                return;
+            }
+            double vreme_kruga = IzracunajVreme(1);
+            PosaljiVremeKruga(vreme_kruga);
+        }
         private void ObavestiSilazak()
         {
+            if (!na_stazi)
+                return;
             if (!PosaljiPorukuTcp("silazim sa staze"))
             {
                 Dispatcher.Invoke(() =>
@@ -419,6 +512,13 @@ namespace Client
         private void btZahtevajBroj_Click(object sender, RoutedEventArgs e)
         {
             ZahtevajTrkackiBroj();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            UdpSoket?.Close();
+            сокет?.Close();
+            base.OnClosed(e);
         }
     }
 }
