@@ -60,14 +60,11 @@ namespace Client
                 });
 
                 // Ponovo otvori prozor za izbor tima
-                if(bolid.Tim == Timovi.NEMA_TIM)
+
+                Dispatcher.Invoke(() =>
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        OtvoriOdabirTima();
-                    });
-                }
-                    
+                    OtvoriOdabirTima();
+                });            
             }
         }
 
