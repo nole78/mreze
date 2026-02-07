@@ -248,7 +248,7 @@ namespace Client
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, 50005);
+            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
             _cts2 = new CancellationTokenSource();
             _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
 
@@ -283,6 +283,7 @@ namespace Client
             else if(bolid.Tim == 0)
             {
                 povezanSaGrazom = true;
+                сокет.Close();
                 OtvoriUdpKonekciju();
             }
             else
