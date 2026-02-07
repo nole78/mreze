@@ -31,12 +31,70 @@ namespace Client
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
         private double osnovno_vreme = 0, duzina_kruga;
         private bool na_stazi = false, povezanSaGrazom = false;
-        private int br_sporog_kruga = 0, port = 0;
+        private int br_sporog_kruga = 0;
+        private const int garagePort = 50000, trkaPort = 59000;
+        int port = 0;
 
         public MainWindow()
         {
             InitializeComponent();
             OtvoriOdabirTima();
+        }
+        private void OtvoriOdabirTima()
+        {
+            OdabirTima odabirTima = new OdabirTima();
+
+            if (odabirTima.ShowDialog() == true)
+            {
+                Timovi tim = odabirTima.izabraniTim;
+                bolid.Tim = tim;
+                string poruka = "";
+                RacunajPotrosnju(tim);
+
+                if (tim == Timovi.Honda)
+                    poruka = "Honda";
+                else if (tim == Timovi.Mercedes)
+                    poruka = "Mercedes";
+                else if (tim == Timovi.Ferari)
+                    poruka = "Ferari";
+                else if (tim == Timovi.Reno)
+                    poruka = "Reno";
+
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Izabrali ste tim: {poruka} - Tim: {bolid.Tim}\n");
+                    chatBox.ScrollToEnd();
+                });
+
+                // Pokušaj da se poveže na server
+                TcpKonekcija(garagePort, ref сокет);
+                Loop(_cts, _rxTask, сокет);
+                if(PosaljiPorukuTcp(poruka, сокет))
+                {
+                    Dispatcher.Invoke(()=>
+                    {
+                        chatBox.AppendText($"[INFO] Poslali ste poruku garazi: {poruka}\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
+                else
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[INFO] Neuspesno slanje poruke garazi.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
+            }
+            else
+            {
+                // Korisnik je zatvorio prozor bez izbora
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText("[INFO] Prozor za izbor tima je zatvoren.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
         }
         public void Loop(CancellationTokenSource cts, Task task,Socket soket)
         {
@@ -77,7 +135,6 @@ namespace Client
             {
                 Socket? s = soket;
                 if (s == null) break;
-
                 try
                 {
                     int n = s.Receive(buf);
@@ -86,9 +143,12 @@ namespace Client
                         Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
+                    EndPoint ep = soket.RemoteEndPoint;
+                    string posiljaocPort = ep.ToString().Split(':')[1];
 
                     string text = Encoding.UTF8.GetString(buf, 0, n);
-                    ObradiPoruku(text);
+
+                    ObradiPoruku(text,posiljaocPort);
                 }
                 catch (SocketException ex)
                 {
@@ -110,6 +170,64 @@ namespace Client
                     });
                     break;
                 }
+            }
+        }
+        private void ObradiPoruku(string poruka,string port_posiljaoca)
+        {
+            // Ako server odbije konekciju, otvori ponovo izbor tima
+            int broj;
+            if(port_posiljaoca == garagePort.ToString())
+            {
+                if (poruka.Contains("Nema više mesta u timu"))
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        OtvoriOdabirTima();
+                    });
+                }
+                if (poruka.Contains("Port:"))
+                {
+                    string port_text = poruka.Split(' ')[1].Trim();
+                    if (!int.TryParse(port_text, out int portZaUdp) || portZaUdp <= garagePort || portZaUdp >= trkaPort)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            chatBox.AppendText($"[GREŠKA] Ne mogu da se povežem sa garažom.\n");
+                            chatBox.ScrollToEnd();
+                            OtvoriOdabirTima();
+                        });
+                    }
+                    else
+                    {
+                        port = portZaUdp;
+                        TcpKonekcija(trkaPort, ref trkaTcpSoket);
+                        Loop(_cts4, _trkaTask, trkaTcpSoket);
+                        povezanSaGrazom = true;
+                        OtvoriUdpKonekciju();
+                        Dispatcher.Invoke(() =>
+                        {
+                            chatBox.AppendText($"[INFO] Povezan sa garažom. Port za UDP: {port}\n");
+                            chatBox.ScrollToEnd();
+                        });
+                    }
+                }
+            }
+            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
+            {
+                trkacki_broj = broj.ToString();
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText(poruka + "\n");
+                    chatBox.ScrollToEnd();
+                });
             }
         }
         private void Disconnect()
@@ -283,41 +401,6 @@ namespace Client
             });
 
         }
-        private void ObradiPoruku(string poruka)
-        {
-            // Ako server odbije konekciju, otvori ponovo izbor tima
-            int broj;
-
-            if (poruka.Contains("Nema više mesta u timu"))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    OtvoriOdabirTima();
-                });
-            }
-            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
-            {
-                trkacki_broj = broj.ToString();
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-            else if(bolid.Tim == 0)
-            {
-                povezanSaGrazom = true;
-                OtvoriUdpKonekciju();
-            }
-            else
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText(poruka + "\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-        }
         public void RacunajPotrosnju(Timovi tim)
         {
             if (tim == Timovi.Mercedes)
@@ -339,47 +422,6 @@ namespace Client
             {
                 bolid.PotrosnjaGuma = 0.2;
                 bolid.PotrosnjaGoriva = 0.6;
-            }
-        }
-        private void OtvoriOdabirTima()
-        {
-            OdabirTima odabirTima = new OdabirTima();
-            
-            if (odabirTima.ShowDialog() == true)
-            {
-                Timovi tim = odabirTima.izabraniTim;
-                bolid.Tim = tim;
-                RacunajPotrosnju(tim);
-
-                if (tim == Timovi.Honda)
-                    port = 50000;
-                else if (tim == Timovi.Mercedes)
-                    port = 50001;
-                else if (tim == Timovi.Ferari)
-                    port = 50002;
-                else if (tim == Timovi.Reno)
-                    port = 50003;
-
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Izabrali ste port: {port} - Tim: {bolid.Tim}\n");
-                    chatBox.ScrollToEnd();
-                });
-
-                // Pokušaj da se poveže na server
-                TcpKonekcija(59000, ref trkaTcpSoket);
-                Loop(_cts4, _trkaTask, trkaTcpSoket);
-                TcpKonekcija(port,ref сокет);
-                Loop(_cts, _rxTask, сокет);
-            }
-            else
-            {
-                // Korisnik je zatvorio prozor bez izbora
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText("[INFO] Prozor za izbor tima je zatvoren.\n");
-                    chatBox.ScrollToEnd();
-                });
             }
         }
         private bool PosaljiPorukuTcp(string poruka,Socket soket)
