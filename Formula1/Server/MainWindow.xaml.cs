@@ -227,13 +227,7 @@ namespace Server
 
         private void btStart_Click(object sender, RoutedEventArgs e)
         {
-            int port;
-            if (!int.TryParse(tbPort.Text, out port) || port < 1 || port > 65535)
-            {
-                MessageBox.Show("GREŠKA","Neispravan port.",MessageBoxButton.OK,MessageBoxImage.Error);
-                return;
-            }
-
+            int port = 59000;
             try
             {
                 server_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);

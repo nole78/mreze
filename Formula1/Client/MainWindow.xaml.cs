@@ -14,6 +14,7 @@ using System.Windows.Shapes;
 using static System.Net.Mime.MediaTypeNames;
 using Client.Enumeracije;
 using Client.Modeli;
+using System.Threading.Tasks;
 
 namespace Client
 {
@@ -22,9 +23,9 @@ namespace Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Socket? сокет, UdpSoket;
-        private CancellationTokenSource? _cts,_cts2,_cts3;
-        private Task? _rxTask,_udpTask,_voziTask;
+        private Socket? сокет, UdpSoket, trkaTcpSoket;
+        private CancellationTokenSource? _cts, _cts2, _cts3, _cts4;
+        private Task? _rxTask,_udpTask,_voziTask,_trkaTask;
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
         private string? trkacki_broj = "";
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
@@ -37,17 +38,18 @@ namespace Client
             InitializeComponent();
             OtvoriOdabirTima();
         }
-
-        private void TcpKonekcija(int port)
+        public void Loop(CancellationTokenSource cts, Task task,Socket soket)
         {
-            сокет = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            cts = new CancellationTokenSource();
+            task = Task.Run(() => ReceiveLoopTcp(cts.Token,soket));
+        }
+        private void TcpKonekcija(int port,ref Socket soket)
+        {
+            soket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, port);
             try
             {
-                сокет.Connect(serverEP);
-
-                _cts = new CancellationTokenSource();
-                _rxTask = Task.Run(() => ReceiveLoopTcp(_cts.Token));
+                soket.Connect(serverEP);
             }
             catch (Exception ex)
             {
@@ -66,14 +68,14 @@ namespace Client
                     });            
             }
         }
-        private void ReceiveLoopTcp(CancellationToken token)
+        private void ReceiveLoopTcp(CancellationToken token,Socket soket)
         {
             povezanSaGrazom = true;
             byte[] buf = new byte[4096];
 
             while (!token.IsCancellationRequested)
             {
-                Socket? s = сокет;
+                Socket? s = soket;
                 if (s == null) break;
 
                 try
@@ -108,6 +110,28 @@ namespace Client
                     });
                     break;
                 }
+            }
+        }
+        private void Disconnect()
+        {
+            try
+            {
+                if (_cts != null) _cts.Cancel();
+
+                if (сокет != null)
+                {
+                    try { сокет.Shutdown(SocketShutdown.Both); } catch { }
+                    try { сокет.Close(); } catch { }
+                }
+                сокет = null;
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
+                    chatBox.ScrollToEnd();
+                });
             }
         }
         public void ObradiUdpPoruku(string poruka)
@@ -294,28 +318,6 @@ namespace Client
                 });
             }
         }
-        private void Disconnect()
-        {
-            try
-            {
-                if (_cts != null) _cts.Cancel();
-
-                if (сокет != null)
-                {
-                    try { сокет.Shutdown(SocketShutdown.Both); } catch { }
-                    try { сокет.Close(); } catch { }
-                }
-                сокет = null;
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-        }
         public void RacunajPotrosnju(Timovi tim)
         {
             if (tim == Timovi.Mercedes)
@@ -365,7 +367,10 @@ namespace Client
                 });
 
                 // Pokušaj da se poveže na server
-                TcpKonekcija(port);
+                TcpKonekcija(59000, ref trkaTcpSoket);
+                Loop(_cts4, _trkaTask, trkaTcpSoket);
+                TcpKonekcija(port,ref сокет);
+                Loop(_cts, _rxTask, сокет);
             }
             else
             {
@@ -377,14 +382,14 @@ namespace Client
                 });
             }
         }
-        private bool PosaljiPorukuTcp(string poruka)
+        private bool PosaljiPorukuTcp(string poruka,Socket soket)
         {
-            if (сокет != null && сокет.Connected)
+            if (soket != null && soket.Connected)
             {
                 byte[] data = Encoding.UTF8.GetBytes(poruka);
                 try
                 {
-                    int n = сокет.Send(data);
+                    int n = soket.Send(data);
                     if (n == 0)
                         return false;
                     return true;
@@ -439,7 +444,6 @@ namespace Client
                 });
                 return;
             }
-            TcpKonekcija(59000);
             string tim;
             if(bolid.Tim == 0)
             {
@@ -468,7 +472,7 @@ namespace Client
                     tim = "Nepoznat";
                     break;
             }
-            if(PosaljiPorukuTcp(tim))
+            if (PosaljiPorukuTcp(tim,trkaTcpSoket))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -488,7 +492,7 @@ namespace Client
         }
         private void PosaljiVremeKruga(double vreme)
         {
-            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + vreme.ToString()))
+            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + vreme.ToString(),trkaTcpSoket))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -597,7 +601,7 @@ namespace Client
         {
             if (!na_stazi)
                 return;
-            if (!PosaljiPorukuTcp("silazim sa staze"))
+            if (!PosaljiPorukuTcp("silazim sa staze",trkaTcpSoket))
             {
                 Dispatcher.Invoke(() =>
                 {
