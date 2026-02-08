@@ -19,7 +19,7 @@ namespace Server
     public partial class MainWindow : Window
     {
         private Dictionary<string, List<double>> vremena = new Dictionary<string, List<Double>>();
-        private Dictionary<string,double> najbolja_vremena = new Dictionary<string, double>();
+        private Dictionary<string, double> najbolja_vremena = new Dictionary<string, double>();
         private static List<string> trkackiBrojevi = new List<string>();
         private static List<string> timovi = new List<string>() { "reno", "mercedes", "ferari", "honda" };
         private static Random rand = new Random();
@@ -27,6 +27,7 @@ namespace Server
 
         private Socket? server_socket;
         private readonly List<Socket> klienti = new List<Socket>();
+        private readonly List<Socket> klijentiNaStazi = new List<Socket>();
         private readonly object _lock = new object();
 
         private CancellationTokenSource? _cts;
@@ -60,7 +61,10 @@ namespace Server
             }
             catch (Exception ex)
             {
-                MessageBox.Show("GREŠKA", "Greška pri zaustavljanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error);
+                Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("GREŠKA", "Greška pri zaustavljanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             }
         }
 
@@ -125,7 +129,9 @@ namespace Server
             }
             catch (Exception ex)
             {
-                MessageBox.Show("GREŠKA","Greška pri prihvaćanju klijenta: " + ex.Message,MessageBoxButton.OK,MessageBoxImage.Error);
+                Dispatcher.Invoke(() => { 
+                    MessageBox.Show("GREŠKA", "Greška pri prihvaćanju klijenta: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error); 
+                });
             }
         }
 
@@ -148,28 +154,36 @@ namespace Server
 
                 if (timovi.Contains(text.Trim().ToLower()))
                 {
-                    TrazenjeTrkackogBroja(klijent,text.Trim().ToLower());
+                    TrazenjeTrkackogBroja(klijent, text.Trim().ToLower());
                 }
                 else if (text.Trim().ToLower() == "silazim sa staze")
                 {
                     SilazakSaStaze(klijent);
                 }
-                else if(text.Contains("Mercedes") || text.Contains("Reno") || text.Contains("Ferari") || text.Contains("Honda"))
+                else if (text.Contains("Mercedes") || text.Contains("Reno") || text.Contains("Ferari") || text.Contains("Honda"))
                 {
                     var niz = text.Split(' ');
                     string vozac = niz[0];
                     double vreme = 0;
-                    if (vozac != string.Empty && double.TryParse(niz[1],out vreme) && vreme > 10 && vreme < 1000)
+                    if (vozac != string.Empty && double.TryParse(niz[1], out vreme) && vreme > 10 && vreme < 1000)
                     {
                         VremeKruga(vozac, vreme);
                     }
                     else
                     {
-                        MessageBox.Show("GREŠKA", "Neispravno vreme kruga od klijenta " + str, MessageBoxButton.OK, MessageBoxImage.Error);
+                        Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show("GREŠKA", "Neispravno vreme kruga od klijenta " + str, MessageBoxButton.OK, MessageBoxImage.Error);
+                        });
                         RemoveClient(klijent, "Invalid lap time");
                         return;
                     }
 
+                }
+                else if (text.Trim() == "izlazim na stazu" && !klijentiNaStazi.Contains(klijent))
+                {
+                    klijentiNaStazi.Add(klijent);
+                    brojVozacaNaStazi++;
                 }
 
             }
@@ -225,6 +239,7 @@ namespace Server
 
         protected override void OnClosed(EventArgs e)
         {
+
             StopServer();
             base.OnClosed(e);
         }
@@ -248,31 +263,15 @@ namespace Server
             }
             catch (Exception ex)
             {
-                MessageBox.Show("GREŠKA", "Greška pri pokretanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error);
+                Dispatcher.Invoke(() => { 
+                    MessageBox.Show("GREŠKA", "Greška pri pokretanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error); 
+                });
             }
         }
 
         private void btStart_Click(object sender, RoutedEventArgs e)
         {
-            int port = 59000;
-            try
-            {
-                server_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                server_socket.Bind(new IPEndPoint(IPAddress.Any, port));
-                server_socket.Listen(100);
-                server_socket.Blocking = false;
-
-                _cts = new CancellationTokenSource();
-                server_task = Task.Run(() => ServerLoop(_cts.Token));
-
-                btStart.IsEnabled = false;
-                btStop.IsEnabled = true;
-                ispis("Server pokrenut na portu " + port);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("GREŠKA", "Greška pri pokretanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            StartServer();
         }
 
         private void btStop_Click(object sender, RoutedEventArgs e)
@@ -280,7 +279,7 @@ namespace Server
             StopServer();
         }
 
-        private void TrazenjeTrkackogBroja(Socket klijent,string tim)
+        private void TrazenjeTrkackogBroja(Socket klijent, string tim)
         {
             string broj = rand.Next(1, 99).ToString();
             while (trkackiBrojevi.Contains(broj))
@@ -288,9 +287,8 @@ namespace Server
                 broj = rand.Next(1, 99).ToString();
             }
             trkackiBrojevi.Add(broj);
-            if(SendToClient(klijent, broj))
+            if (SendToClient(klijent, broj))
             {
-                brojVozacaNaStazi++;
                 string vozac = broj + tim;
                 vremena[vozac] = new List<double>();
                 string? str = (klijent.RemoteEndPoint != null) ? klijent.RemoteEndPoint.ToString() : "klijent";
@@ -298,17 +296,24 @@ namespace Server
                 ispis("Dodeljen trkački broj: " + broj + " klijentu " + str);
             }
             else
-                MessageBox.Show("GREŠKA","Greška pri slanju trkačkog broja klijentu.",MessageBoxButton.OK,MessageBoxImage.Error);
+            Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show("GREŠKA", "Greška pri slanju trkačkog broja klijentu.", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
         }
         private void SilazakSaStaze(Socket klijent)
         {
             brojVozacaNaStazi--;
-            if(brojVozacaNaStazi < 0)
+            klijentiNaStazi.Remove(klijent);
+            if (brojVozacaNaStazi < 0)
             {
                 brojVozacaNaStazi = 0;
-                MessageBox.Show("GREŠKA", "Broj vozača na stazi ne može biti negativan.", MessageBoxButton.OK, MessageBoxImage.Error);
+                Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show("GREŠKA", "Broj vozača na stazi ne može biti negativan.", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             }
-            if(brojVozacaNaStazi == 0)
+            if (brojVozacaNaStazi == 0)
             {
                 IspisVremena();
             }
@@ -316,20 +321,27 @@ namespace Server
 
         private void IspisVremena()
         {
-            foreach(var krug in vremena)
+            Dispatcher.Invoke(() =>
+            {
+                tbVremena.Clear();
+            });
+            foreach (var krug in vremena)
             {
                 string vozac = krug.Key;
                 List<double> vremenaKrugova = krug.Value;
-                foreach(double vreme in vremenaKrugova)
+                foreach (double vreme in vremenaKrugova)
                 {
                     var match = Regex.Match(vozac, @"^(\d+)([a-zA-Z]+)$");
                     Dispatcher.Invoke(() =>
                     {
-                        tbVremena.Clear();
-                        tbVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme/60 + ":" + (int)vreme%60 + ":" + (int)(vreme*100)%100 + "\n";
+                        tbVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme / 60 + ":" + (int)vreme % 60 + ":" + (int)(vreme * 100) % 100 + "\n";
                     });
                 }
             }
+            Dispatcher.Invoke(() =>
+            {
+                tbNajVremena.Clear();
+            });
             foreach (var krug in najbolja_vremena)
             {
                 string vozac = krug.Key;
@@ -337,27 +349,26 @@ namespace Server
                 var match = Regex.Match(vozac, @"^(\d+)([a-zA-Z]+)$");
                 Dispatcher.Invoke(() =>
                 {
-                    tbVremena.Clear();
-                    tbVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme / 60 + ":" + (int)vreme % 60 + ":" + (int)(vreme * 100) % 100 + "\n";
+                    tbNajVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme / 60 + ":" + (int)vreme % 60 + ":" + (int)(vreme * 100) % 100 + "\n";
                 });
             }
         }
 
-        private void VremeKruga(string vozac,double vreme)
+        private void VremeKruga(string vozac, double vreme)
         {
-            if(!vremena.TryAdd(vozac, new List<double>() { vreme}))
+            if (!vremena.TryAdd(vozac, new List<double>() { vreme }))
             {
                 vremena[vozac].Add(vreme);
             }
-            ispis("Vreme kruga za vozača " + vozac + ": " + vreme + " sekundi");
-            if(!najbolja_vremena.ContainsKey(vozac))
+            ispis("Vreme kruga za vozača " + vozac + ": " + Double.Round(vreme, 2) + " sekundi");
+            if (!najbolja_vremena.ContainsKey(vozac))
             {
                 najbolja_vremena.Add(vozac, vreme);
             }
             else
             {
                 double trenutnoNajbolje = vreme;
-                foreach(double v in vremena[vozac])
+                foreach (double v in vremena[vozac])
                 {
                     if (v < trenutnoNajbolje)
                     {
@@ -376,5 +387,6 @@ namespace Server
                 tbTEST.Text += str + "\n";
             });
         }
+
     }
 }
