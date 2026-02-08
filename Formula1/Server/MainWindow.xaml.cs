@@ -35,6 +35,7 @@ namespace Server
         public MainWindow()
         {
             InitializeComponent();
+            StartServer();
         }
 
         private void StopServer()
@@ -223,6 +224,29 @@ namespace Server
         {
             StopServer();
             base.OnClosed(e);
+        }
+
+        private void StartServer()
+        {
+            int port = 59000;
+            try
+            {
+                server_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                server_socket.Bind(new IPEndPoint(IPAddress.Any, port));
+                server_socket.Listen(100);
+                server_socket.Blocking = false;
+
+                _cts = new CancellationTokenSource();
+                server_task = Task.Run(() => ServerLoop(_cts.Token));
+
+                btStart.IsEnabled = false;
+                btStop.IsEnabled = true;
+                ispis("Server pokrenut na portu " + port);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("GREŠKA", "Greška pri pokretanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void btStart_Click(object sender, RoutedEventArgs e)

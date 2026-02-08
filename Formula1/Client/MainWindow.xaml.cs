@@ -263,7 +263,7 @@ namespace Client
             {
                 ObavestiSilazak();
             }
-            else if(poruka.Contains("izadji na stazu"))
+            else if(poruka.Contains("Izlazak na stazu:"))
             {
                 var niz = poruka.Split(' ');
                 if (niz.Length == 4)
@@ -318,12 +318,12 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
-            else if (poruka.Contains("specifikacije kruga: "))
+            else if (poruka.Contains("Specifikacije kruga: "))
             {
                 var niz = poruka.Split(' ');
                 if (niz.Length == 4)
                 {
-                    if (double.TryParse(niz[3], out double duzina) && duzina > 0 && double.TryParse(niz[4],out double vreme) && osnovno_vreme > 10)
+                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && osnovno_vreme > 10)
                     {
                         duzina_kruga = duzina;
                         osnovno_vreme = vreme;
@@ -400,63 +400,6 @@ namespace Client
                 chatBox.ScrollToEnd();
             });
 
-        }
-        private void ObradiPoruku(string poruka)
-        {
-            // Ako server odbije konekciju, otvori ponovo izbor tima
-            int broj;
-
-            if (poruka.Contains("Nema više mesta u timu"))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    OtvoriOdabirTima();
-                });
-            }
-            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
-            {
-                trkacki_broj = broj.ToString();
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-            else if(bolid.Tim == 0)
-            {
-                povezanSaGrazom = true;
-                OtvoriUdpKonekciju();
-            }
-            else
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText(poruka + "\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-        }
-        private void Disconnect()
-        {
-            try
-            {
-                if (_cts != null) _cts.Cancel();
-
-                if (сокет != null)
-                {
-                    try { сокет.Shutdown(SocketShutdown.Both); } catch { }
-                    try { сокет.Close(); } catch { }
-                }
-                сокет = null;
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
         }
         public void RacunajPotrosnju(Timovi tim)
         {
