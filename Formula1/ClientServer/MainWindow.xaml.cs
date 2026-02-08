@@ -10,8 +10,9 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using Client.Modeli;
+using System.Windows.Shell;
 using Client.Enumeracije;
+using Client.Modeli;
 namespace ClientServer
 {
     /// <summary>
@@ -21,27 +22,36 @@ namespace ClientServer
     {
         struct Trkaci
         {
+            public int brVozaca;
             public Timovi tim;
             public EndPoint ep;
+            public int udpPort;
         }
         private List<Trkaci> Honda = new List<Trkaci>();
         private List<Trkaci> Mercedes = new List<Trkaci>();
         private List<Trkaci> Ferari = new List<Trkaci>();
         private List<Trkaci> Reno = new List<Trkaci>();
         
-        private readonly List<Socket> _listeners = new List<Socket>();
         private readonly List<Socket> _clients = new List<Socket>();
+        private readonly Dictionary<int, Socket> _udpSockets = new Dictionary<int, Socket>();  // ✅ UDP soketi po portu
+
+
         private readonly object _lock = new object();
 
         private CancellationTokenSource _cts;
         private List<Task> _serverTasks;
-        private Socket udpSocket = null;
+        private Socket tcpSoket;
+        private Task _udpTask;
 
-        private readonly int[] _ports = { 50000, 50001, 50002, 50003};
+        private readonly int _tcpPort = 50000;
+        private readonly int[] _udpPorts = { 50004, 50005, 50006, 50007, 50008, 50009, 50010, 50011 };
+        private int brojUdpPovezanih = 0;
         private int[] povezani = { 0, 0, 0, 0 };
 
         private int DuzinaStaze = 0;
         private double OsnovnoVremeKruga = 0;
+
+        private volatile bool _isClosing = false;
         public MainWindow()
         {
             InitializeComponent();
@@ -51,35 +61,33 @@ namespace ClientServer
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            StartServer();
+            StartServerTcp();
         }
 
-        private async void StartServer()
+        private async void StartServerTcp()
         {
             try
             {
                 _cts = new CancellationTokenSource();
                 _serverTasks = new List<Task>();
 
-                foreach (var port in _ports)
+
+                tcpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    
+                    
+                Dispatcher.Invoke(() =>
                 {
-                    var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + $"Server START na portu {_tcpPort}\n");
+                    konzolaGaraza.ScrollToEnd();
+                });
+
+                tcpSoket.Bind(new IPEndPoint(IPAddress.Any, _tcpPort));
+                tcpSoket.Listen(100);
                     
                     
-                    Dispatcher.Invoke(() =>
-                    {
-                        konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " + "Server START na portu " + port + "\n");
-                        konzolaGaraza.ScrollToEnd();
-                    });
-                    
-                    listener.Bind(new IPEndPoint(IPAddress.Any, port));
-                    listener.Listen(100);
-                    
-                    _listeners.Add(listener);
-                    
-                    var task = AcceptClientsAsync(listener, port, _cts.Token);
-                    _serverTasks.Add(task);
-                }
+                var task = AcceptClientsTcp(tcpSoket, _tcpPort, _cts.Token);
+                _serverTasks.Add(task);
+                
 
                 await Task.WhenAll(_serverTasks);
             }
@@ -88,108 +96,22 @@ namespace ClientServer
                 Ispisi($"Server greška: {ex.Message}");
             }
         }
-
-        private async Task AcceptClientsAsync(Socket listener, int port, CancellationToken cancellationToken)
+        private async Task AcceptClientsTcp(Socket listener, int port, CancellationToken cancellationToken)
         {
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
                     Socket clientSocket = await listener.AcceptAsync();
-
-                    // Provjeri broj povezanih klijenta za ovaj port
-                    int portIndex = port - 50000;
-
-                    if (povezani[portIndex] >= 2)
-                    {
-                       
-                        var odbijPoruka = Encoding.UTF8.GetBytes("Nema više mesta u timu");
-                        try
-                        {
-                            await clientSocket.SendAsync(new ArraySegment<byte>(odbijPoruka), SocketFlags.None);
-                        }
-                        catch { }
-
-                        clientSocket.Close();
-
-                        Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] Konekcija odbijena - tim je pun!");
-
-                        continue;  // Nastavi sa čekanjem sledećeg klijenta
-                    }
+                    var clientEndPoint = clientSocket.RemoteEndPoint;
 
                     lock (_lock)
                     {
                         _clients.Add(clientSocket);
                     }
 
-                    var clientEndPoint = clientSocket.RemoteEndPoint;
-                    if(udpSocket == null)
-                    {
-                        OtvoriUdpSoket(cancellationToken);
-                    }
-                    
-                   
-                    povezani[portIndex]++;
-
-                    if (portIndex == 0)  // Honda — port 50000
-                    {
-                        Trkaci trkaci = new Trkaci();
-                        trkaci.tim = Timovi.Honda;
-                        trkaci.ep = clientEndPoint;
-                        Honda.Add(trkaci);
-                        int idx = Honda.Count;
-                        EnableAutoButtonForTeam(0, idx);
-                    }
-                    else if(portIndex == 1)  // Mercedes — port 50001
-                    {
-                        Trkaci trkaci = new Trkaci();
-                        trkaci.tim = Timovi.Mercedes;
-                        trkaci.ep = clientEndPoint;
-                        Mercedes.Add(trkaci);
-                        int idx = Mercedes.Count;
-                        EnableAutoButtonForTeam(1, idx);
-                    }
-                    else if (portIndex == 2)  // Ferari — port 50002
-                    {
-                        Trkaci trkaci = new Trkaci();
-                        trkaci.tim = Timovi.Ferari;
-                        trkaci.ep = clientEndPoint;
-                        Ferari.Add(trkaci);
-                        int idx = Ferari.Count;
-                        EnableAutoButtonForTeam(2, idx);
-                    }
-                    else if (portIndex == 3)  // Reno — port 50003
-                    {
-                        Trkaci trkaci = new Trkaci();
-                        trkaci.tim = Timovi.Reno;
-                        trkaci.ep = clientEndPoint;
-                        Reno.Add(trkaci);
-                        int idx = Reno.Count;
-                        EnableAutoButtonForTeam(3, idx);
-                    }
-
-                    
-                    Dispatcher.Invoke(() =>
-                    {
-                        konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
-                            "Klijent " + clientEndPoint + " se povezao na port: " + port +
-                            " (" + povezani[portIndex] + "/2)\n");
-                        konzolaGaraza.ScrollToEnd();
-                    });
-
-                    // Uzvrati poruku klijentu
-                    var poruka = Encoding.UTF8.GetBytes($"Uspešno ste se povezali sa garazom! ({povezani[portIndex]}/2)\n");
-                    try
-                    {
-                        await clientSocket.SendAsync(new ArraySegment<byte>(poruka), SocketFlags.None);
-                    }
-                    catch (Exception ex)
-                    {
-                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri slanju poruke: {ex.Message}");
-                    }
-
-                    _ = Task.Run(() => MonitorujKlijenta(clientSocket, portIndex));
-
+                    // ✅ Čekaj da klijent pošalje broj tima koji trebа
+                    _ = Task.Run(() => DobroDosoTcp(clientSocket, clientEndPoint));
                 }
                 catch (OperationCanceledException)
                 {
@@ -197,33 +119,192 @@ namespace ClientServer
                 }
                 catch (Exception ex)
                 {
-                    Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta na portu {port}: {ex.Message}");
+                    Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri prihvatanju klijenta: {ex.Message}");
                 }
             }
         }
+        private async Task DobroDosoTcp(Socket clientSocket, EndPoint clientEndPoint)
+        {
+            int portIndex = -1;
+            int udpPort = -1;
 
-        private void MonitorujKlijenta(Socket clientSocket, int portIndex)
+            try
+            {
+                byte[] buffer = new byte[10];
+                int bytesReceived = await clientSocket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
+
+                if (bytesReceived > 0)
+                {
+                    string tim = Encoding.UTF8.GetString(buffer, 0, bytesReceived).Trim().ToLower();
+                    Ispisi(tim);
+                    
+                    if (tim.Length != 0)
+                    {
+                        int timPort = tim switch
+                        {
+                            "honda" => 50000,
+                            "mercedes" => 50001,
+                            "ferari" => 50002,
+                            "reno" => 50003,
+                            _ => -1
+                        };
+
+                        if (timPort == -1)
+                        {
+                            var greska = Encoding.UTF8.GetBytes("Neispravan broj tima!");
+                            await clientSocket.SendAsync(new ArraySegment<byte>(greska), SocketFlags.None);
+                            clientSocket.Close();
+                            lock (_lock) { _clients.Remove(clientSocket); }
+                            return;
+                        }
+
+                        portIndex = timPort - 50000;
+
+                        // ✅ Prebaci sve ispod lock-a IZVAN lock bloka
+                        int tempUdpPort = -1;
+                        bool canConnect = false;
+
+                        lock (_lock)
+                        {
+                            if (povezani[portIndex] >= 2)
+                            {
+                                canConnect = false;
+                                return;
+                            }
+
+                            if (brojUdpPovezanih < _udpPorts.Length)
+                            {
+                                tempUdpPort = _udpPorts[brojUdpPovezanih];
+                                brojUdpPovezanih++;
+                                canConnect = true;
+                            }
+                            else
+                            {
+                                canConnect = false;
+                                return;
+                            }
+                        }
+
+                        // ✅ Ako je konekcija odbijena, pošalji grešku IZVAN lock-a
+                        if (!canConnect)
+                        {
+                            var odbijPoruka = Encoding.UTF8.GetBytes("Nema više mesta u timu");
+                            try
+                            {
+                                await clientSocket.SendAsync(new ArraySegment<byte>(odbijPoruka), SocketFlags.None);
+                            }
+                            catch { }
+                            
+                            clientSocket.Close();
+                            lock (_lock) { _clients.Remove(clientSocket); }
+                            Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] Konekcija odbijena - tim je pun!");
+                            return;
+                        }
+
+                        udpPort = tempUdpPort;
+
+                        // ✅ Kreni sa slušanjem na UDP portu - IZVAN lock-a
+                        OtvoriUdpSoketZaKlijenta(udpPort);
+
+                        // ✅ Dodaj trkača IZVAN lock-a
+                        lock (_lock)
+                        {
+                            povezani[portIndex]++;
+
+                            Trkaci trkaci = new Trkaci
+                            {
+                                brVozaca = GetTimZaPort(portIndex).Count,
+                                tim = GetTimEnum(portIndex),
+                                ep = clientEndPoint,
+                                udpPort = udpPort
+                            };
+
+                            GetTimZaPort(portIndex).Add(trkaci);
+
+                            // ✅ Sve UI operacije u Dispatcher.Invoke
+                            Dispatcher.Invoke(() =>
+                            {
+                                konzolaGaraza.AppendText("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                                    "Klijent " + clientEndPoint + " se povezao na tim: " + GetTeamName(portIndex) +
+                                    " (UDP port: " + udpPort + ") (" + povezani[portIndex] + "/2)\n");
+                                konzolaGaraza.ScrollToEnd();
+                                
+                                EnableAutoButtonForTeam(portIndex, trkaci.brVozaca + 1);
+                            });
+                        }
+
+                        // ✅ Slanje potvrde - IZVAN lock-a
+                        string potvrdaPoruka = $"Port: {udpPort}";
+                        var poruka = Encoding.UTF8.GetBytes(potvrdaPoruka);
+                        try
+                        {
+                            await clientSocket.SendAsync(new ArraySegment<byte>(poruka), SocketFlags.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            Ispisi($"Greška pri slanju potvrde: {ex.Message}");
+                        }
+
+                        _ = Task.Run(() => MonitorujKlijenta(clientSocket, portIndex, udpPort));
+                    }
+                    else
+                    {
+                        var greska = Encoding.UTF8.GetBytes("Neispravan broj tima!");
+                        try
+                        {
+                            await clientSocket.SendAsync(new ArraySegment<byte>(greska), SocketFlags.None);
+                        }
+                        catch { }
+                        
+                        clientSocket.Close();
+                        lock (_lock) { _clients.Remove(clientSocket); }
+                    }
+                }
+                else
+                {
+                    clientSocket.Close();
+                    lock (_lock) { _clients.Remove(clientSocket); }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                clientSocket.Close();
+                lock (_lock) { _clients.Remove(clientSocket); }
+                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Klijent je otkačen pre nego što je poslao broj tima");
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                clientSocket.Close();
+                lock (_lock) { _clients.Remove(clientSocket); }
+                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Klijent je prekinuo konekciju");
+            }
+            catch (Exception ex)
+            {
+                clientSocket.Close();
+                lock (_lock) { _clients.Remove(clientSocket); }
+                Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri obradi klijenta: {ex.Message}");
+            }
+        }
+        private void MonitorujKlijenta(Socket clientSocket, int portIndex, int udpPort) 
         {
             byte[] buffer = new byte[1];
+            EndPoint clientEndPoint = clientSocket.RemoteEndPoint;
 
             while (clientSocket != null && clientSocket.Connected)
             {
                 try
                 {
-                    // Pokušaj da pročitaš jedan bajt - ako vrati 0, klijent je otkačen
                     int bytesReceived = clientSocket.Receive(buffer, SocketFlags.Peek);
 
                     if (bytesReceived == 0)
                     {
-                        // ✅ Klijent je otkačen!
                         break;
                     }
 
-                    Thread.Sleep(100);  // Čekaj pre nego što ponovi
+                    Thread.Sleep(100);
                 }
                 catch (SocketException)
                 {
-                    // ✅ Greška = klijent je otkačen
                     break;
                 }
                 catch (Exception)
@@ -232,82 +313,220 @@ namespace ClientServer
                 }
             }
 
-            // ✅ Klijent je otkačen - smanji brojač i disable dugme
             lock (_lock)
             {
                 povezani[portIndex]--;
 
                 Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
-                    "Klijent sa porta " + (50000 + portIndex) + " se otkačio (" + povezani[portIndex] + "/2)");
+                    "Klijent sa tima " + GetTeamName(portIndex) + " se otkačio (" + povezani[portIndex] + "/2)");
 
-                // Ukloni iz liste
                 var timLista = GetTimZaPort(portIndex);
-                if (timLista != null)
+                if (timLista != null && clientEndPoint != null)
                 {
-                    timLista.RemoveAll(t => t.ep?.Equals(clientSocket.RemoteEndPoint) ?? false);
-                }
+                    var trkacZaBrisanje = timLista.FirstOrDefault(t => t.ep?.Equals(clientEndPoint) ?? false);
 
-                // ✅ Ako nema više klijenta, disable dugme
-                if (povezani[portIndex] == 0)
-                {
-                    Dispatcher.Invoke(() =>
+                    if (trkacZaBrisanje.ep != null)
                     {
-                        DisableAutoButtonForTeam(portIndex);
-                    });
+                        int brVozaca = trkacZaBrisanje.brVozaca;
+
+                        Ispisi($"[AUTO] Uklonjen vozač br. {brVozaca} iz tima {trkacZaBrisanje.tim} (UDP port: {udpPort})");
+
+                        timLista.RemoveAll(t => t.ep?.Equals(clientEndPoint) ?? false);
+
+                        // ✅ Zatvori UDP soket ako nema više klijenta na tom portu
+                        if (_udpSockets.ContainsKey(udpPort))
+                        {
+                            try
+                            {
+                                _udpSockets[udpPort].Close();
+                                _udpSockets.Remove(udpPort);
+                            }
+                            catch { }
+                        }
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            DisableAutoButtonForTeam(portIndex, brVozaca + 1);
+                        });
+                    }
                 }
 
                 _clients.Remove(clientSocket);
             }
 
-            // Zatvori socket
             try { clientSocket.Shutdown(SocketShutdown.Both); } catch { }
             try { clientSocket.Close(); } catch { }
         }
-
-        private List<Trkaci> GetTimZaPort(int portIndex)
+        private void OtvoriUdpSoketZaKlijenta(int udpPort)
         {
-            return portIndex switch
+            try
             {
-                0 => Honda,      // port 50000
-                1 => Mercedes,   // port 50001
-                2 => Ferari,     // port 50002
-                3 => Reno,       // port 50003
-            };
+                if (_udpSockets.ContainsKey(udpPort))
+                {
+                    return;  // ✅ Soket već postoji
+                }
+
+                var udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                udpSocket.Bind(new IPEndPoint(IPAddress.Any, udpPort));
+                udpSocket.Blocking = false;
+
+                _udpSockets[udpPort] = udpSocket;
+
+                // ✅ Kreni sa slušanjem na ovom UDP portu
+                _ = Task.Run(() => ReceiveUdpLoop(udpPort, _cts.Token));
+
+                Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] UDP soket otvoren na portu " + udpPort);
+            }
+            catch (Exception ex)
+            {
+                Ispisi($"Greška pri otvaranju UDP soketa: {ex.Message}");
+            }
+        }
+        private async Task ReceiveUdpLoop(int udpPort, CancellationToken cancellationToken)
+        {
+            if (!_udpSockets.ContainsKey(udpPort))
+                return;
+
+            var udpSocket = _udpSockets[udpPort];
+            byte[] buffer = new byte[4096];
+            EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+
+            while (!cancellationToken.IsCancellationRequested && _udpSockets.ContainsKey(udpPort))
+            {
+                try
+                {
+                    int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
+
+                    if (bytesReceived > 0)
+                    {
+                        string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
+                        Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
+                            "[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
+                    }
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    Thread.Sleep(10);
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    if (!_isClosing)
+                    {
+                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP {udpPort}: {ex.Message}");
+                    }
+                    break;
+                }
+            }
+        }
+        private void posaljiUdpPoruku(EndPoint ep, string poruka)
+        {
+            try
+            {
+                // ✅ Pronađi Trkaci po EndPoint-u
+                Trkaci? trkacZaSlanje = null;
+
+                foreach (var lista in new[] { Honda, Mercedes, Ferari, Reno })
+                {
+                    var pronaden = lista.FirstOrDefault(t => t.ep?.Equals(ep) ?? false);
+                    if (pronaden.ep != null)
+                    {
+                        trkacZaSlanje = pronaden;
+                        break;
+                    }
+                }
+
+                if (trkacZaSlanje == null)
+                {
+                    Ispisi("Vozač nije pronađen!");
+                    return;
+                }
+
+                int udpPort = trkacZaSlanje.Value.udpPort;
+
+                if (!_udpSockets.ContainsKey(udpPort))
+                {
+                    Ispisi("UDP soket nije inicijalizovan za port " + udpPort);
+                    return;
+                }
+
+                var udpSocket = _udpSockets[udpPort];
+                var ipEndPoint = ep as IPEndPoint;
+
+                if (ipEndPoint != null)
+                {
+                    IPEndPoint clientUdpEndPoint = new IPEndPoint(ipEndPoint.Address, udpPort);
+                    byte[] binarnaPoruka = Encoding.UTF8.GetBytes(poruka);
+                    int sent = udpSocket.SendTo(binarnaPoruka, clientUdpEndPoint);
+
+                    Ispisi($"[UDP SLANJE] Poslato {sent} bajtova na {clientUdpEndPoint}: {poruka}");
+                }
+                else
+                {
+                    Ispisi("Neispravan endpoint format!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Ispisi($"Greška pri slanju UDP poruke: {ex.Message}");
+            }
         }
         private void Ispisi(string poruka)
         {
-            Dispatcher.Invoke(() =>
-            {
-                konzolaGaraza.AppendText(poruka + "\n");
-                konzolaGaraza.ScrollToEnd();
-            });
-        }
+            if (_isClosing)
+                return;
 
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (!_isClosing && konzolaGaraza != null)
+                    {
+                        konzolaGaraza.AppendText(poruka + "\n");
+                        konzolaGaraza.ScrollToEnd();
+                    }
+                });
+            }
+            catch (TaskCanceledException) { }
+            catch (OperationCanceledException) { }
+            catch { }
+        }
         protected override void OnClosed(EventArgs e)
         {
+            _isClosing = true;
+            
             base.OnClosed(e);
             _cts?.Cancel();
             
             lock (_lock)
             {
-                foreach (var listener in _listeners)
+                if (tcpSoket != null)
                 {
-                    listener?.Close();
+                    tcpSoket.Close();
                 }
-                _listeners.Clear();
+
 
                 foreach (var client in _clients)
                 {
                     client?.Close();
                 }
                 _clients.Clear();
-                if(udpSocket != null)
+                foreach (var udpSocket in _udpSockets.Values)
                 {
-                    udpSocket.Close();
+                    try
+                    {
+                        udpSocket?.Shutdown(SocketShutdown.Both);
+                    }
+                    catch { }
+                    finally
+                    {
+                        udpSocket?.Close();
+                        udpSocket?.Dispose();
+                    }
                 }
+                _udpSockets.Clear();
             }
         }
-
         private void PrikaziUnosParametaraTrka()
         {
             GarazaUnosParametaraTrke gu = new GarazaUnosParametaraTrke();
@@ -318,71 +537,6 @@ namespace ClientServer
                 OsnovnoVremeKruga = gu.OsnovnoVremeKruga;
             }
         }
-
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private async void OtvoriUdpSoket(CancellationToken cancellationToken)
-        {
-            try
-            {
-
-                udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-
-                udpSocket.Bind(new IPEndPoint(IPAddress.Any, 50007));
-                udpSocket.Blocking = false;
-                Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] UDP soket otvoren na portu 50007");
-
-                _ = Task.Run(() => ReceiveUdpLoop(cancellationToken));
-            }
-            catch (Exception ex)
-            {
-                Ispisi($"Server greška: {ex.Message}");
-            }
-        }
-
-        private async Task ReceiveUdpLoop(CancellationToken cancellationToken)
-        {
-            byte[] buffer = new byte[4096];
-            EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-
-            while (!cancellationToken.IsCancellationRequested && udpSocket != null)
-            {
-                try
-                {
-                    // Čitaj UDP poruke
-                    int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
-
-                    if (bytesReceived > 0)
-                    {
-                        string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-
-                        // Ispis u UI
-                        Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
-                            "[UDP 50007] Primljena od " + remoteEP + ": " + receivedMessage);
-
-                        // Odgovori klijentu
-                        
-                        
-                    }
-                }
-                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
-                {
-                    // Nema dostupnih podataka
-                    Thread.Sleep(10);
-                    continue;
-                }
-                catch (Exception ex)
-                {
-                    Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP podataka: {ex.Message}");
-                    break;
-                }
-            }
-        }
-
-        // Pomoćna funkcija — enable auto dugme za tim (sa idx parametrom)
         private void EnableAutoButtonForTeam(int portIndex, int idx)
         {
             string teamName = GetTeamName(portIndex);
@@ -399,14 +553,11 @@ namespace ClientServer
                 autoButton2.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green);
             }
         }
-
-        // Pomoćna funkcija — disable auto dugme za tim (bez idx parametra)
-        private void DisableAutoButtonForTeam(int portIndex)
+        private void DisableAutoButtonForTeam(int portIndex, int idx)
         {
             string teamName = GetTeamName(portIndex);
-            Ispisi($"[AUTO] Onemogućen auto dugme za tim: {teamName}");
 
-            var (autoButton1, autoButton2) = FindAutoButtonsAll(teamName);
+            var (autoButton1, autoButton2) = FindAutoButtons(teamName, idx);
             
             if (autoButton1 != null)
             {
@@ -419,26 +570,22 @@ namespace ClientServer
                 autoButton2.Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gray);
             }
         }
-
-        // Pomoćna funkcija — pronađi auto dugme po imenu tima i idx-u
         private (Button, Button) FindAutoButtons(string teamName, int idx)
         {
             var btn1 = (Button)this.FindName($"btnPosalji{teamName}{idx}");
             var btn2 = (Button)this.FindName($"btnKontrolisi{teamName}{idx}");
             return (btn1, btn2);
         }
-
-        // Pomoćna funkcija — pronađi sve auto dugme po imenu tima (za disable)
-        private (Button, Button) FindAutoButtonsAll(string teamName)
+        private List<Trkaci> GetTimZaPort(int portIndex)
         {
-            // Ako trebaš sve dugme za taj tim, možeš koristiti idx 1 kao default
-            // ili pronaći sve dinamički
-            var btn1 = (Button)this.FindName($"btnPosalji{teamName}1");
-            var btn2 = (Button)this.FindName($"btnKontrolisi{teamName}1");
-            return (btn1, btn2);
+            return portIndex switch
+            {
+                0 => Honda,      // port 50000
+                1 => Mercedes,   // port 50001
+                2 => Ferari,     // port 50002
+                3 => Reno,       // port 50003
+            };
         }
-
-        // Pomoćna funkcija — vrati ime tima na osnovu porta
         private string GetTeamName(int portIndex)
         {
             return portIndex switch
@@ -447,8 +594,169 @@ namespace ClientServer
                 1 => "Mercedes",
                 2 => "Ferari",
                 3 => "Reno",
-                _ => "Unknown"
             };
+        }
+        private Timovi GetTimEnum(int portIndex)
+        {
+            return portIndex switch
+            {
+                0 => Timovi.Honda,
+                1 => Timovi.Mercedes,
+                2 => Timovi.Ferari,
+                3 => Timovi.Reno,
+                _ => Timovi.Honda
+            };
+        }
+        private void btnPosaljiMercedes1_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Mercedes[0].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiFerari1_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Ferari[0].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiReno1_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Reno[0].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiHonda1_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Honda[0].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiMercedes2_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Mercedes[1].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiFerari2_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Ferari[1].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiReno2_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Reno[1].ep, poruka);
+            }
+        }
+
+        private void btnPosaljiHonda2_Click(object sender, RoutedEventArgs e)
+        {
+            PosaljiFormuluNaSazu pf = new PosaljiFormuluNaSazu();
+            if (pf.ShowDialog() == true)
+            {
+                int procenatGoriva = pf.KolicinaGoriva;
+                char izabranTipGuma = pf.TipGuma switch
+                {
+                    TipGume.SrednjeTvrde => 'M',
+                    TipGume.Tvrde => 'H',
+                    TipGume.Meke => 'S'
+                };
+                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
+                posaljiUdpPoruku(Honda[1].ep, poruka);
+            }
         }
     }
 }

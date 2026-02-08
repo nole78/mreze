@@ -154,19 +154,22 @@ namespace Server
                 {
                     SilazakSaStaze(klijent);
                 }
-                else
+                else if(text.Contains("Mercedes") || text.Contains("Reno") || text.Contains("Ferari") || text.Contains("Honda"))
                 {
-                    var match = Regex.Match(text, @"^(\d+[a-zA-Z]+)([\d.]+)$");
-                    string vozac = match.Groups[1].Value;
-                    double vreme = double.Parse(match.Groups[2].Value);
-                    if (vozac != string.Empty || vreme < 1 || vreme > 1000000)
+                    var niz = text.Split(' ');
+                    string vozac = niz[0];
+                    double vreme = 0;
+                    if (vozac != string.Empty && double.TryParse(niz[1],out vreme) && vreme > 10 && vreme < 1000)
                     {
-
+                        VremeKruga(vozac, vreme);
+                    }
+                    else
+                    {
                         MessageBox.Show("GREŠKA", "Neispravno vreme kruga od klijenta " + str, MessageBoxButton.OK, MessageBoxImage.Error);
                         RemoveClient(klijent, "Invalid lap time");
                         return;
                     }
-                    VremeKruga(vozac, vreme);
+
                 }
 
             }
@@ -342,12 +345,14 @@ namespace Server
 
         private void VremeKruga(string vozac,double vreme)
         {
-
-            vremena[vozac].Add(vreme);
+            if(!vremena.TryAdd(vozac, new List<double>() { vreme}))
+            {
+                vremena[vozac].Add(vreme);
+            }
             ispis("Vreme kruga za vozača " + vozac + ": " + vreme + " sekundi");
             if(!najbolja_vremena.ContainsKey(vozac))
             {
-                najbolja_vremena[vozac] = vreme;
+                najbolja_vremena.Add(vozac, vreme);
             }
             else
             {

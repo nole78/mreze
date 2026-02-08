@@ -164,7 +164,7 @@ namespace Client
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
+                        chatBox.AppendText($"[GREŠKA123] {ex.Message}\n");
                         chatBox.ScrollToEnd();
                         Disconnect();
                     });
@@ -259,7 +259,7 @@ namespace Client
                 chatBox.AppendText($"[UDP] {poruka}\n");
                 chatBox.ScrollToEnd();
             });
-            if(poruka == "sidji sa staze")
+            if(poruka.Trim() == "Sidji sa staze")
             {
                 ObavestiSilazak();
             }
@@ -298,17 +298,17 @@ namespace Client
                     }
                 }
             }
-            else if(poruka == "brzo" || poruka == "sporo" || poruka == "normalno")
+            else if(poruka == "Vozi brze" || poruka == "Vozi sporije" || poruka == "Vozi srednjim tempom")
             {
                 switch (poruka)
                 {
-                    case "brzo":
+                    case "Vozi brze":
                         nacinVoznje = NacinVoznje.Brzo;
                         break;
-                    case "sporo":
+                    case "Vozi sporije":
                         nacinVoznje = NacinVoznje.Sporo;
                         break;
-                    case "normalno":
+                    case "Vozi srednjim tempom":
                         nacinVoznje = NacinVoznje.Normalno;
                         break;
                 }
@@ -320,10 +320,10 @@ namespace Client
             }
             else if (poruka.Contains("Specifikacije kruga: "))
             {
-                var niz = poruka.Split(' ');
+                var niz = poruka.Trim().Split(' ');
                 if (niz.Length == 4)
                 {
-                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && osnovno_vreme > 10)
+                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && vreme > 10)
                     {
                         duzina_kruga = duzina;
                         osnovno_vreme = vreme;
@@ -358,12 +358,17 @@ namespace Client
                     int n = s.ReceiveFrom(buf,ref senderEP);
                     if (n == 0)
                     {
-                        Dispatcher.Invoke(() => Disconnect());
+                        //Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
 
                     string text = Encoding.UTF8.GetString(buf, 0, n);
                     ObradiUdpPoruku(text);
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    Thread.Sleep(10);
+                    continue;
                 }
                 catch (SocketException ex)
                 {
@@ -371,7 +376,7 @@ namespace Client
                     {
                         chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
                         chatBox.ScrollToEnd();
-                        Disconnect();
+                        //Disconnect();
                     });
                     break;
                 }
@@ -381,7 +386,7 @@ namespace Client
                     {
                         chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
                         chatBox.ScrollToEnd();
-                        Disconnect();
+                        //Disconnect();
                     });
                     break;
                 }
@@ -391,6 +396,8 @@ namespace Client
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
+            UdpSoket.Bind(destinationEP);
+            UdpSoket.Blocking = false;
             _cts2 = new CancellationTokenSource();
             _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
 
@@ -534,7 +541,7 @@ namespace Client
         }
         private void PosaljiVremeKruga(double vreme)
         {
-            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + vreme.ToString(),trkaTcpSoket))
+            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + " " + vreme.ToString(),trkaTcpSoket))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -609,7 +616,6 @@ namespace Client
                 double vreme_kruga = IzracunajVreme(krug);
                 if (vreme_kruga == 0)
                     break;
-                PosaljiVremeKruga(vreme_kruga);
                  krug++;
                 Thread.Sleep((int)(vreme_kruga*1000)); // Simulacija vremena kruga
                 PosaljiVremeKruga(vreme_kruga);

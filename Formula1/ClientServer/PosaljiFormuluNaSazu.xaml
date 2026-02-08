@@ -1,0 +1,25 @@
+﻿<Window x:Class="ClientServer.PosaljiFormuluNaSazu"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ClientServer"
+        mc:Ignorable="d"
+        Title="PosaljiFormuluNaSazu" Height="450" Width="800">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Label Content="Unesite tip guma:" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Height="26" Width="120"/>
+        <Label Content="Procenat goriva sa kojim pocinjete trku" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Grid.Column="1" Height="26" Width="240"/>
+        <ComboBox x:Name="cbTipGuma" HorizontalAlignment="Center" Margin="0,195,0,0" VerticalAlignment="Top" Width="180" Height="22">
+            <ComboBoxItem Content="Tvrde" IsSelected="True"/>
+            <ComboBoxItem Content="Srednje tvrde"/>
+            <ComboBoxItem Content="Meke"/>
+        </ComboBox>
+        <Button x:Name="btnPosaljiFormulu" Content="Posalji formulu" HorizontalAlignment="Left" Margin="325,263,0,0" VerticalAlignment="Top" Width="150" Grid.ColumnSpan="2" Height="40" Click="btnPosaljiFormulu_Click"/>
+        <TextBox x:Name="tbProcenatGoriva" Grid.Column="1" HorizontalAlignment="Left" Margin="80,197,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="203"/>
+
+    </Grid>
+</Window>
