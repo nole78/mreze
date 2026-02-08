@@ -318,7 +318,7 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
-            else if (poruka.Contains("Specifikacije kruga: "))
+            else if (poruka.Contains("specifikacije kruga: "))
             {
                 var niz = poruka.Trim().Split(' ');
                 if (niz.Length == 4)
