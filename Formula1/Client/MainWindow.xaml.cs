@@ -259,11 +259,11 @@ namespace Client
                 chatBox.AppendText($"[UDP] {poruka}\n");
                 chatBox.ScrollToEnd();
             });
-            if(poruka == "sidji sa staze")
+            if(poruka.Trim() == "Sidji sa staze")
             {
                 ObavestiSilazak();
             }
-            else if(poruka.Contains("Izlazak na stazu"))
+            else if(poruka.Contains("Izlazak na stazu:"))
             {
                 var niz = poruka.Split(' ');
                 if (niz.Length == 4)
@@ -298,17 +298,17 @@ namespace Client
                     }
                 }
             }
-            else if(poruka == "brzo" || poruka == "sporo" || poruka == "normalno")
+            else if(poruka == "Vozi brze" || poruka == "Vozi sporije" || poruka == "Vozi srednjim tempom")
             {
                 switch (poruka)
                 {
-                    case "brzo":
+                    case "Vozi brze":
                         nacinVoznje = NacinVoznje.Brzo;
                         break;
-                    case "sporo":
+                    case "Vozi sporije":
                         nacinVoznje = NacinVoznje.Sporo;
                         break;
-                    case "normalno":
+                    case "Vozi srednjim tempom":
                         nacinVoznje = NacinVoznje.Normalno;
                         break;
                 }
@@ -318,12 +318,12 @@ namespace Client
                     chatBox.ScrollToEnd();
                 });
             }
-            else if (poruka.Contains("specifikacije kruga: "))
+            else if (poruka.Contains("Specifikacije kruga: "))
             {
-                var niz = poruka.Split(' ');
+                var niz = poruka.Trim().Split(' ');
                 if (niz.Length == 4)
                 {
-                    if (double.TryParse(niz[3], out double duzina) && duzina > 0 && double.TryParse(niz[4],out double vreme) && osnovno_vreme > 10)
+                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && vreme > 10)
                     {
                         duzina_kruga = duzina;
                         osnovno_vreme = vreme;
@@ -541,7 +541,7 @@ namespace Client
         }
         private void PosaljiVremeKruga(double vreme)
         {
-            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + vreme.ToString(),trkaTcpSoket))
+            if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + " " + vreme.ToString(),trkaTcpSoket))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -616,7 +616,6 @@ namespace Client
                 double vreme_kruga = IzracunajVreme(krug);
                 if (vreme_kruga == 0)
                     break;
-                PosaljiVremeKruga(vreme_kruga);
                  krug++;
                 Thread.Sleep((int)(vreme_kruga*1000)); // Simulacija vremena kruga
                 PosaljiVremeKruga(vreme_kruga);
