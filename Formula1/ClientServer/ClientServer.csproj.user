@@ -5,6 +5,9 @@
     <Compile Update="GarazaUnosParametaraTrke.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="KontrolaFormule.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="PosaljiFormuluNaSazu.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

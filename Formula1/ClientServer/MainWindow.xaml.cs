@@ -316,7 +316,7 @@ namespace ClientServer
             lock (_lock)
             {
                 povezani[portIndex]--;
-
+                brojUdpPovezanih--;
                 Ispisi("[" + DateTime.Now.ToString("HH:mm:ss") + "] " +
                     "Klijent sa tima " + GetTeamName(portIndex) + " se otkačio (" + povezani[portIndex] + "/2)");
 
@@ -619,7 +619,7 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
                 posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Mercedes[0].ep, poruka);
@@ -638,8 +638,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Ferari[0].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Ferari[0].ep, poruka);
             }
@@ -657,8 +657,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Reno[0].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Reno[0].ep, poruka);
             }
@@ -676,8 +676,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Honda[0].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Honda[0].ep, poruka);
             }
@@ -695,8 +695,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Mercedes[1].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Mercedes[1].ep, poruka);
             }
@@ -714,8 +714,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Ferari[1].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Ferari[1].ep, poruka);
             }
@@ -733,8 +733,8 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Reno[1].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Reno[1].ep, poruka);
             }
@@ -752,10 +752,98 @@ namespace ClientServer
                     TipGume.Tvrde => 'H',
                     TipGume.Meke => 'S'
                 };
-                string porukaSpec = $"Specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
-                posaljiUdpPoruku(Mercedes[0].ep, porukaSpec);
+                string porukaSpec = $"specifikacije kruga: {DuzinaStaze} {OsnovnoVremeKruga}";
+                posaljiUdpPoruku(Honda[1].ep, porukaSpec);
                 string poruka = $"Izlazak na stazu: {izabranTipGuma},{procenatGoriva}";
                 posaljiUdpPoruku(Honda[1].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiMercedes1_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Mercedes[0].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiFerari1_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Ferari[0].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiReno1_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Reno[0].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiHonda1_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if(poruka.Length > 0)
+                    posaljiUdpPoruku(Honda[0].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiMercedes2_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Mercedes[1].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiFerari2_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Ferari[1].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiReno2_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Reno[1].ep, poruka);
+            }
+        }
+
+        private void btnKontrolisiHonda2_Click(object sender, RoutedEventArgs e)
+        {
+            KontrolaFormule kf = new KontrolaFormule();
+            if (kf.ShowDialog() == true)
+            {
+                string poruka = kf.poruka;
+                if (poruka.Length > 0)
+                    posaljiUdpPoruku(Honda[1].ep, poruka);
             }
         }
     }

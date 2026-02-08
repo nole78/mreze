@@ -1,0 +1,22 @@
+﻿<Window x:Class="ClientServer.KontrolaFormule"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ClientServer"
+        mc:Ignorable="d"
+        Title="KontrolaFormule" Height="450" Width="800">
+    <Grid>
+        <Grid Margin="0,0,0,160">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="btnVoziSporije" Content="VOZI SPORIJE" Margin="10,10,10,10" Click="btnVoziSporije_Click"/>
+            <Button x:Name="btnVoziSrednje" Grid.Column="1" Content="VOZI SREDNJIM TEMPOM" Margin="10,10,10,10" Click="btnVoziSrednje_Click"/>
+            <Button x:Name="btnVoziBrze" Grid.Column="2" Content="VOZI BRŽE" Margin="10,10,10,10" Click="btnVoziBrze_Click"/>
+        </Grid>
+        <Button x:Name="btnVratiSeUGarazu" Content="VRATI SE U GARAŽU" HorizontalAlignment="Center" Margin="0,317,0,0" VerticalAlignment="Top" Height="58" Width="190" Click="btnVratiSeUGarazu_Click"/>
+    </Grid>
+</Window>
