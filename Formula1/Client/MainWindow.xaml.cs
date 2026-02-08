@@ -33,7 +33,7 @@ namespace Client
         private bool na_stazi = false, povezanSaGrazom = false;
         private int br_sporog_kruga = 0;
         private const int garagePort = 50000, trkaPort = 59000;
-        int port = 0;
+        int port = 0,mojUdpPort = 0;
 
         public MainWindow()
         {
@@ -395,8 +395,9 @@ namespace Client
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
+            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Any, 0);
             UdpSoket.Bind(destinationEP);
+            mojUdpPort = destinationEP.Port;
             UdpSoket.Blocking = false;
             _cts2 = new CancellationTokenSource();
             _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
@@ -406,7 +407,7 @@ namespace Client
                 chatBox.AppendText($"Otvorena UDP utičnica");
                 chatBox.ScrollToEnd();
             });
-
+            PosaljiPorukuTcp("UDP_PORT: " + mojUdpPort, сокет);
         }
         public void RacunajPotrosnju(Timovi tim)
         {
@@ -615,27 +616,42 @@ namespace Client
                 double vreme_kruga = IzracunajVreme(krug);
                 if (vreme_kruga == 0)
                     break;
-                 krug++;
-                Thread.Sleep((int)(vreme_kruga*1000)); // Simulacija vremena kruga
+                krug++;
+                Thread.Sleep((int)(vreme_kruga * 1000)); // Simulacija vremena kruga
                 PosaljiVremeKruga(vreme_kruga);
-                PosaljiPorukuUdp("gume: " + bolid.PotrosnjaGuma + " gorivo: " + bolid.PotrosnjaGoriva);
-            }
-            if (!PosaljiPorukuTcp("silazim sa staze", trkaTcpSoket))
-            {
-                Dispatcher.Invoke(() =>
+                if (PosaljiPorukuUdp("gume: " + bolid.PotrosnjaGuma + " gorivo: " + bolid.PotrosnjaGoriva))
                 {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-            else
-            {
-                Dispatcher.Invoke(() =>
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[INFO] Poslato stanje guma i goriva.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
+                else
                 {
-                    chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
-                    chatBox.ScrollToEnd();
-                });
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem stanje guma i goriva.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
             }
+                if (!PosaljiPorukuTcp("silazim sa staze", trkaTcpSoket))
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
+                else
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
+                        chatBox.ScrollToEnd();
+                    });
+                }
         }
         private void Vozi()
         {
