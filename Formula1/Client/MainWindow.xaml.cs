@@ -164,7 +164,7 @@ namespace Client
                 {
                     Dispatcher.Invoke(() =>
                     {
-                        chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
+                        chatBox.AppendText($"[GREŠKA123] {ex.Message}\n");
                         chatBox.ScrollToEnd();
                         Disconnect();
                     });
@@ -263,7 +263,7 @@ namespace Client
             {
                 ObavestiSilazak();
             }
-            else if(poruka.Contains("izadji na stazu"))
+            else if(poruka.Contains("Izlazak na stazu"))
             {
                 var niz = poruka.Split(' ');
                 if (niz.Length == 4)
@@ -358,12 +358,17 @@ namespace Client
                     int n = s.ReceiveFrom(buf,ref senderEP);
                     if (n == 0)
                     {
-                        Dispatcher.Invoke(() => Disconnect());
+                        //Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
 
                     string text = Encoding.UTF8.GetString(buf, 0, n);
                     ObradiUdpPoruku(text);
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.WouldBlock)
+                {
+                    Thread.Sleep(10);
+                    continue;
                 }
                 catch (SocketException ex)
                 {
@@ -371,7 +376,7 @@ namespace Client
                     {
                         chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
                         chatBox.ScrollToEnd();
-                        Disconnect();
+                        //Disconnect();
                     });
                     break;
                 }
@@ -381,7 +386,7 @@ namespace Client
                     {
                         chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
                         chatBox.ScrollToEnd();
-                        Disconnect();
+                        //Disconnect();
                     });
                     break;
                 }
@@ -391,6 +396,8 @@ namespace Client
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
+            UdpSoket.Bind(destinationEP);
+            UdpSoket.Blocking = false;
             _cts2 = new CancellationTokenSource();
             _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
 
@@ -400,63 +407,6 @@ namespace Client
                 chatBox.ScrollToEnd();
             });
 
-        }
-        private void ObradiPoruku(string poruka)
-        {
-            // Ako server odbije konekciju, otvori ponovo izbor tima
-            int broj;
-
-            if (poruka.Contains("Nema više mesta u timu"))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    OtvoriOdabirTima();
-                });
-            }
-            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
-            {
-                trkacki_broj = broj.ToString();
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-            else if(bolid.Tim == 0)
-            {
-                povezanSaGrazom = true;
-                OtvoriUdpKonekciju();
-            }
-            else
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText(poruka + "\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
-        }
-        private void Disconnect()
-        {
-            try
-            {
-                if (_cts != null) _cts.Cancel();
-
-                if (сокет != null)
-                {
-                    try { сокет.Shutdown(SocketShutdown.Both); } catch { }
-                    try { сокет.Close(); } catch { }
-                }
-                сокет = null;
-            }
-            catch (Exception ex)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
         }
         public void RacunajPotrosnju(Timovi tim)
         {
