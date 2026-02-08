@@ -395,7 +395,7 @@ namespace Client
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, port);
+            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Loopback, 50007);
             UdpSoket.Bind(destinationEP);
             UdpSoket.Blocking = false;
             _cts2 = new CancellationTokenSource();

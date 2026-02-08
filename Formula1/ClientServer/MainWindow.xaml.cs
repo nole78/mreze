@@ -33,8 +33,7 @@ namespace ClientServer
         private List<Trkaci> Reno = new List<Trkaci>();
         
         private readonly List<Socket> _clients = new List<Socket>();
-        private readonly Dictionary<int, Socket> _udpSockets = new Dictionary<int, Socket>();  // ✅ UDP soketi po portu
-
+        private readonly Dictionary<int, Socket> _udpSockets = new Dictionary<int, Socket>();
 
         private readonly object _lock = new object();
 
@@ -134,7 +133,29 @@ namespace ClientServer
                 if (bytesReceived > 0)
                 {
                     string tim = Encoding.UTF8.GetString(buffer, 0, bytesReceived).Trim().ToLower();
-                    
+                    if(tim.Contains("UDP_PORT: "))
+                    {
+                        int clientudpPort = Int32.Parse(tim.Split(' ')[1].Trim());
+                        Ispisi($"Klijentov udp: {clientudpPort}");
+                        lock (_lock)
+                        {
+                            for (int i = 0; i < 4; i++)
+                            {
+                                var lista = GetTimZaPort(i);
+                                var index = lista.FindIndex(t => t.ep?.Equals(clientEndPoint) ?? false);
+                                if (index >= 0)
+                                {
+                                    var trkac = lista[index];
+                                    trkac.udpPort = clientudpPort;  // ✅ Spremi klijentov UDP port
+                                    lista[index] = trkac;
+
+                                    Ispisi($"[INFO] Klijent {clientEndPoint} koristi UDP port: {clientudpPort}");
+                                    break;
+                                }
+                            }
+                        }
+                        return;
+                    }
                     if (tim.Length != 0)
                     {
                         int timPort = tim switch
@@ -360,45 +381,50 @@ namespace ClientServer
 
         private async Task ReceiveUdpLoop(int udpPort, CancellationToken cancellationToken)
         {
+            if (!_udpSockets.ContainsKey(udpPort))
+                return;
+
             var udpSocket = _udpSockets[udpPort];
             byte[] buffer = new byte[4096];
-            EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
 
-            Ispisi($"[UDP DEBUG] Počelo slušanje na portu {udpPort}");  // ✅ Debug
-
-            while (!cancellationToken.IsCancellationRequested && _udpSockets.ContainsKey(udpPort))
+            // ✅ Pokreni u thread pool (ne kao async Task)
+            await Task.Run(() =>
             {
-                try
+                while (!cancellationToken.IsCancellationRequested && _udpSockets.ContainsKey(udpPort))
                 {
-                    int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
+                    try
+                    {
+                        EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+                        int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
 
-                    if (bytesReceived > 0)
+                        if (bytesReceived > 0)
+                        {
+                            string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
+                            Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
+                        }
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
                     {
-                        string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-                        Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);  // ✅ Debug
+                        continue;
+                    }
+                    catch (SocketException ex)
+                    {
+                        if (!_isClosing)
+                        {
+                            Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] SocketException na UDP {udpPort}: {ex.SocketErrorCode} - {ex.Message}");
+                        }
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!_isClosing)
+                        {
+                            Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP {udpPort}: {ex.Message}");
+                        }
+                        break;
                     }
                 }
-                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
-                {
-                    continue;
-                }
-                catch (SocketException ex)
-                {
-                    if (!_isClosing)
-                    {
-                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] SocketException na UDP {udpPort}: {ex.SocketErrorCode} - {ex.Message}");
-                    }
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    if (!_isClosing)
-                    {
-                        Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP {udpPort}: {ex.Message}");
-                    }
-                    break;
-                }
-            }
+            }, cancellationToken);
         }
         private void posaljiUdpPoruku(EndPoint ep, string poruka)
         {
