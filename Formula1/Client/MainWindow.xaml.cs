@@ -609,7 +609,6 @@ namespace Client
         }
         private void VoziLoop(CancellationToken token)
         {
-            na_stazi = true;
             int krug = 1;
             while (!token.IsCancellationRequested)
             {
@@ -620,6 +619,22 @@ namespace Client
                 Thread.Sleep((int)(vreme_kruga*1000)); // Simulacija vremena kruga
                 PosaljiVremeKruga(vreme_kruga);
                 PosaljiPorukuUdp("gume: " + bolid.PotrosnjaGuma + " gorivo: " + bolid.PotrosnjaGoriva);
+            }
+            if (!PosaljiPorukuTcp("silazim sa staze", trkaTcpSoket))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
+                    chatBox.ScrollToEnd();
+                });
+            }
+            else
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
+                    chatBox.ScrollToEnd();
+                });
             }
         }
         private void Vozi()
@@ -642,6 +657,8 @@ namespace Client
                 });
                 return;
             }
+            PosaljiPorukuTcp("izlazim na stazu", trkaTcpSoket);
+            na_stazi = true;
             _cts3 = new CancellationTokenSource();
             _voziTask = Task.Run(() => VoziLoop(_cts3.Token));
         }
@@ -649,19 +666,14 @@ namespace Client
         {
             if (!na_stazi)
                 return;
-            if (!PosaljiPorukuTcp("silazim sa staze",trkaTcpSoket))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
-                    chatBox.ScrollToEnd();
-                });
-            }
+            na_stazi = false;
+            if(_cts3 != null)
+                _cts3?.Cancel();
             else
             {
                 Dispatcher.Invoke(() =>
                 {
-                    chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
+                    chatBox.AppendText($"[GREŠKA] Nije pokrenuta vožnja, ne mogu da se zaustavim.\n");
                     chatBox.ScrollToEnd();
                 });
             }
@@ -672,8 +684,20 @@ namespace Client
         }
         protected override void OnClosed(EventArgs e)
         {
+            if(_cts != null)
+                _cts2?.Cancel();
+            if(_cts3 != null)
+                _cts3?.Cancel();
+            if (_cts4 != null)
+                _cts4?.Cancel();
+            if(_cts != null)
+                _cts?.Cancel();
+            trkaTcpSoket?.Close();
+            trkaTcpSoket = null;
             UdpSoket?.Close();
+            UdpSoket= null;
             сокет?.Close();
+            сокет = null;
             base.OnClosed(e);
         }
     }
