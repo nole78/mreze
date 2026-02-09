@@ -26,6 +26,7 @@ namespace ClientServer
             public Timovi tim;
             public EndPoint ep;
             public int udpPort;
+            public int clientUdpPort;
         }
         private List<Trkaci> Honda = new List<Trkaci>();
         private List<Trkaci> Mercedes = new List<Trkaci>();
@@ -133,29 +134,7 @@ namespace ClientServer
                 if (bytesReceived > 0)
                 {
                     string tim = Encoding.UTF8.GetString(buffer, 0, bytesReceived).Trim().ToLower();
-                    if(tim.Contains("UDP_PORT: "))
-                    {
-                        int clientudpPort = Int32.Parse(tim.Split(' ')[1].Trim());
-                        Ispisi($"Klijentov udp: {clientudpPort}");
-                        lock (_lock)
-                        {
-                            for (int i = 0; i < 4; i++)
-                            {
-                                var lista = GetTimZaPort(i);
-                                var index = lista.FindIndex(t => t.ep?.Equals(clientEndPoint) ?? false);
-                                if (index >= 0)
-                                {
-                                    var trkac = lista[index];
-                                    trkac.udpPort = clientudpPort;  // ✅ Spremi klijentov UDP port
-                                    lista[index] = trkac;
-
-                                    Ispisi($"[INFO] Klijent {clientEndPoint} koristi UDP port: {clientudpPort}");
-                                    break;
-                                }
-                            }
-                        }
-                        return;
-                    }
+                    
                     if (tim.Length != 0)
                     {
                         int timPort = tim switch
@@ -256,6 +235,7 @@ namespace ClientServer
                         }
 
                         _ = Task.Run(() => MonitorujKlijenta(clientSocket, portIndex, udpPort));
+                        _ = Task.Run(() => CekajUdpPort(clientSocket, portIndex));
                     }
                     else
                     {    
@@ -280,6 +260,71 @@ namespace ClientServer
                 clientSocket.Close();
                 lock (_lock) { _clients.Remove(clientSocket); }
                 Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri obradi klijenta: {ex.Message}");
+            }
+        }
+
+        private async Task CekajUdpPort(Socket clientSocket, int portIndex)
+        {
+            byte[] buffer = new byte[50];
+            EndPoint clientEndPoint = clientSocket.RemoteEndPoint; 
+
+            try
+            {
+                while (true)
+                {
+                    int bytesReceived = await clientSocket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
+
+                    if (bytesReceived == 0)
+                    {
+                        break;
+                    }
+
+                    string poruka = Encoding.UTF8.GetString(buffer, 0, bytesReceived).Trim();
+
+                    if (poruka.Contains("UDP_PORT:"))
+                    {
+                        try
+                        {
+                            int clientUdpPort = Int32.Parse(poruka.Split(':')[1].Trim());
+                            Ispisi($"Korisnikov UDP port: {clientUdpPort}");
+
+                            lock (_lock)
+                            {
+                                // ✅ Pronađi klijenta i ažuriraj njegov UDP port
+                                var lista = GetTimZaPort(portIndex);
+                                var index = lista.FindIndex(t => t.ep?.Equals(clientEndPoint) ?? false);
+
+                                if (index >= 0)
+                                {
+                                    var trkac = lista[index];
+                                    trkac.clientUdpPort = clientUdpPort;  
+                                    lista[index] = trkac;
+
+                                    Ispisi($"[INFO] Klijent {clientEndPoint} sluša na UDP portu: {clientUdpPort}");
+                                    return;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Ispisi($"[GREŠKA] Parsiranje UDP_PORT poruke: {ex.Message}");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // ✅ Ako nije UDP_PORT poruka, ignoriši je
+                        Ispisi($"[INFO] Čekam UDP_PORT, primljena: {poruka}");
+                    }
+                }
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
+            {
+                Ispisi($"[INFO] Timeout čekanja UDP_PORT od {clientEndPoint}");
+            }
+            catch (Exception ex)
+            {
+                Ispisi($"[GREŠKA] U CekajUdpPort: {ex.Message}");
             }
         }
         private void MonitorujKlijenta(Socket clientSocket, int portIndex, int udpPort) 
@@ -449,7 +494,7 @@ namespace ClientServer
                 }
 
                 int udpPort = trkacZaSlanje.Value.udpPort;
-
+                int clientUdp = trkacZaSlanje.Value.clientUdpPort;
                 if (!_udpSockets.ContainsKey(udpPort))
                 {
                     Ispisi("UDP soket nije inicijalizovan za port " + udpPort);
@@ -461,7 +506,7 @@ namespace ClientServer
 
                 if (ipEndPoint != null)
                 {
-                    IPEndPoint clientUdpEndPoint = new IPEndPoint(ipEndPoint.Address, udpPort);
+                    IPEndPoint clientUdpEndPoint = new IPEndPoint(ipEndPoint.Address, clientUdp);
                     byte[] binarnaPoruka = Encoding.UTF8.GetBytes(poruka);
                     int sent = udpSocket.SendTo(binarnaPoruka, clientUdpEndPoint);
 

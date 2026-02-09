@@ -395,7 +395,7 @@ namespace Client
         private void OtvoriUdpKonekciju()
         {
             UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Any, 55000);
+            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Any, 0);
             UdpSoket.Bind(destinationEP);
             mojUdpPort = ((IPEndPoint)UdpSoket.LocalEndPoint).Port;
             UdpSoket.Blocking = false;
