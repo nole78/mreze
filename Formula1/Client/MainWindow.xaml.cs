@@ -524,6 +524,8 @@ namespace Client
                 krug++;
                 if (alarm_flag) // alarm
                 {
+                    Ispis("[ALARM] Stanje guma ili goriva kritično! Hitno siđite sa staze!");
+                    PosaljiPorukuUdp("ALARM");
                     ObavestiSilazak();
                 }
                 Thread.Sleep((int)(vreme_kruga * 1000)); // Simulacija vremena kruga
