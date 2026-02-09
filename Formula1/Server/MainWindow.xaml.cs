@@ -54,10 +54,7 @@ namespace Server
 
                 SafeClose(server_socket);
                 server_socket = null;
-
-                btStart.IsEnabled = true;
-                btStop.IsEnabled = false;
-                ispis("Server zaustavljen");
+                Ispis("Server zaustavljen");
             }
             catch (Exception ex)
             {
@@ -67,8 +64,6 @@ namespace Server
                 });
             }
         }
-
-
         private void ServerLoop(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -109,7 +104,6 @@ namespace Server
                 }
             }
         }
-
         private void AcceptClient(Socket listener)
         {
             try
@@ -120,7 +114,7 @@ namespace Server
                 lock (_lock) klienti.Add(klijent);
 
                 string? str = (klijent.RemoteEndPoint != null) ? klijent.RemoteEndPoint.ToString() : "unknown";
-                ispis("Novi klijent: " + str);
+                Ispis("Novi klijent: " + str);
                 SendToClient(klijent, "Dobrodošao! Povezan si kao " + str);
             }
             catch (SocketException)
@@ -129,12 +123,9 @@ namespace Server
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => { 
-                    MessageBox.Show("GREŠKA", "Greška pri prihvaćanju klijenta: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error); 
-                });
+                Ispis("GREŠKA: Greška pri prihvaćanju klijenta: " + ex.Message);
             }
         }
-
         private void ReceiveFromClient(Socket klijent)
         {
             byte[] buffer = new byte[1024];
@@ -150,7 +141,7 @@ namespace Server
 
                 string text = Encoding.UTF8.GetString(buffer, 0, n);
                 string? str = (klijent.RemoteEndPoint != null) ? klijent.RemoteEndPoint.ToString() : "klijent";
-                ispis("[" + str + "] " + text);
+                Ispis("[" + str + "] " + text);
 
                 if (timovi.Contains(text.Trim().ToLower()))
                 {
@@ -171,10 +162,7 @@ namespace Server
                     }
                     else
                     {
-                        Dispatcher.Invoke(() =>
-                        {
-                            MessageBox.Show("GREŠKA", "Neispravno vreme kruga od klijenta " + str, MessageBoxButton.OK, MessageBoxImage.Error);
-                        });
+                        Ispis("Neispravno vreme kruga od klijenta " + str + ": " + niz[1]);
                         RemoveClient(klijent, "Invalid lap time");
                         return;
                     }
@@ -196,7 +184,6 @@ namespace Server
                 RemoveClient(klijent, "Error: " + ex.Message);
             }
         }
-
         private bool SendToClient(Socket client, string msg)
         {
             try
@@ -212,7 +199,6 @@ namespace Server
                 return false;
             }
         }
-
         private void RemoveClient(Socket klijent, string razlog)
         {
             bool removed = false;
@@ -224,61 +210,44 @@ namespace Server
             if (removed)
             {
                 string? str = (klijent.RemoteEndPoint != null) ? klijent.RemoteEndPoint.ToString() : "unknown";
-                ispis("Klijent " + str + " uklonjen (" + razlog + ")");
+                Ispis("Klijent " + str + " uklonjen (" + razlog + ")");
             }
 
             SafeClose(klijent);
         }
-
         private static void SafeClose(Socket? s)
         {
             if (s == null) return;
             try { s.Shutdown(SocketShutdown.Both); } catch { }
             try { s.Close(); } catch { }
         }
-
         protected override void OnClosed(EventArgs e)
         {
 
             StopServer();
             base.OnClosed(e);
         }
-
         private void StartServer()
         {
             int port = 59000;
             try
             {
                 server_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                server_socket.Bind(new IPEndPoint(IPAddress.Any, port));
+                server_socket.Bind(new IPEndPoint(IPAddress.Any,port));
                 server_socket.Listen(100);
                 server_socket.Blocking = false;
 
                 _cts = new CancellationTokenSource();
                 server_task = Task.Run(() => ServerLoop(_cts.Token));
-
-                btStart.IsEnabled = false;
-                btStop.IsEnabled = true;
-                ispis("Server pokrenut na portu " + port);
+                Ispis("Server pokrenut\n\tAddress: \t" + (server_socket.LocalEndPoint?.ToString() ?? " ").Split(':')[0] + "\n\tPort: \t\t" + (server_socket.LocalEndPoint?.ToString() ?? " ").Split(':')[1]);
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() => { 
-                    MessageBox.Show("GREŠKA", "Greška pri pokretanju servera: " + ex.Message, MessageBoxButton.OK, MessageBoxImage.Error); 
+                Dispatcher.Invoke(() => {
+                    Ispis("GREŠKA: Ne mogu pokrenuti server: " + ex.Message);
                 });
             }
         }
-
-        private void btStart_Click(object sender, RoutedEventArgs e)
-        {
-            StartServer();
-        }
-
-        private void btStop_Click(object sender, RoutedEventArgs e)
-        {
-            StopServer();
-        }
-
         private void TrazenjeTrkackogBroja(Socket klijent, string tim)
         {
             string broj = rand.Next(1, 99).ToString();
@@ -293,12 +262,12 @@ namespace Server
                 vremena[vozac] = new List<double>();
                 string? str = (klijent.RemoteEndPoint != null) ? klijent.RemoteEndPoint.ToString() : "klijent";
 
-                ispis("Dodeljen trkački broj: " + broj + " klijentu " + str);
+                Ispis("Dodeljen trkački broj: " + broj + " klijentu " + str);
             }
             else
             Dispatcher.Invoke(() =>
             {
-                MessageBox.Show("GREŠKA", "Greška pri slanju trkačkog broja klijentu.", MessageBoxButton.OK, MessageBoxImage.Error);
+                Ispis("GREŠKA: Ne mogu poslati trkački broj klijentu.");
             });
         }
         private void SilazakSaStaze(Socket klijent)
@@ -308,17 +277,13 @@ namespace Server
             if (brojVozacaNaStazi < 0)
             {
                 brojVozacaNaStazi = 0;
-                Dispatcher.Invoke(() =>
-                {
-                    MessageBox.Show("GREŠKA", "Broj vozača na stazi ne može biti negativan.", MessageBoxButton.OK, MessageBoxImage.Error);
-                });
+                Ispis("Broj vozača na stazi ne može biti negativan. Resetovan na 0.");
             }
             if (brojVozacaNaStazi == 0)
             {
                 IspisVremena();
             }
         }
-
         private void IspisVremena()
         {
             Dispatcher.Invoke(() =>
@@ -353,14 +318,13 @@ namespace Server
                 });
             }
         }
-
         private void VremeKruga(string vozac, double vreme)
         {
             if (!vremena.TryAdd(vozac, new List<double>() { vreme }))
             {
                 vremena[vozac].Add(vreme);
             }
-            ispis("Vreme kruga za vozača " + vozac + ": " + Double.Round(vreme, 2) + " sekundi");
+            Ispis("Vreme kruga za vozača " + vozac + ": " + Double.Round(vreme, 2) + " sekundi");
             if (!najbolja_vremena.ContainsKey(vozac))
             {
                 najbolja_vremena.Add(vozac, vreme);
@@ -379,14 +343,12 @@ namespace Server
             }
 
         }
-
-        void ispis(string str)
+        void Ispis(string str)
         {
             Dispatcher.Invoke(() =>
             {
-                tbTEST.Text += str + "\n";
+                tbTEST.Text += "\n" + str;
             });
         }
-
     }
 }
