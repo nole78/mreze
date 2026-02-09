@@ -423,7 +423,7 @@ namespace ClientServer
                             
                             if(receivedMessage.Contains("ALARM"))
                             {
-                                Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
+                                Ispisi("[ALARM " + udpPort + "] Primljena od " + remoteEP + ": Trkač se vraća u garažu!");
                             }else
                             {
                                 Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
