@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ClientServer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Garaza" Height="450" Width="800">
     <Grid>
         <TextBox x:Name="konzolaGaraza" HorizontalAlignment="Center" Margin="0,322,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="664" Height="102"/>
         <Grid Margin="0,0,0,117">

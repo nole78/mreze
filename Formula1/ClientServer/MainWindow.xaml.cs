@@ -188,7 +188,7 @@ namespace ClientServer
 
                         udpPort = tempUdpPort;
 
-                        OtvoriUdpSoketZaKlijenta(udpPort);
+                        OtvoriUdpSoketZaKlijenta(udpPort, portIndex);
 
                         lock (_lock)
                         {
@@ -373,7 +373,7 @@ namespace ClientServer
             try { clientSocket.Shutdown(SocketShutdown.Both); } catch { }
             try { clientSocket.Close(); } catch { }
         }
-        private void OtvoriUdpSoketZaKlijenta(int udpPort)
+        private void OtvoriUdpSoketZaKlijenta(int udpPort, int portIndex)
         {
             try
             {
@@ -390,7 +390,7 @@ namespace ClientServer
 
                 _udpSockets[udpPort] = udpSocket;
 
-                _ = Task.Run(() => ReceiveUdpLoop(udpPort, _cts.Token));
+                _ = Task.Run(() => ReceiveUdpLoop(udpPort, _cts.Token, portIndex));
 
                 Ispisi("UDP soket otvoren na portu " + udpPort);
             }
@@ -400,7 +400,7 @@ namespace ClientServer
             }
         }
 
-        private async Task ReceiveUdpLoop(int udpPort, CancellationToken cancellationToken)
+        private async Task ReceiveUdpLoop(int udpPort, CancellationToken cancellationToken, int portIndex)
         {
             if (!_udpSockets.ContainsKey(udpPort))
                 return;
@@ -436,10 +436,6 @@ namespace ClientServer
                     }
                     catch (Exception ex)
                     {
-                        if (!_isClosing)
-                        {
-                            Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP {udpPort}: {ex.Message}");
-                        }
                         break;
                     }
                 }

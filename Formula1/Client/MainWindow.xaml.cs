@@ -227,6 +227,7 @@ namespace Client
             }
             else if(poruka.Contains("Izlazak na stazu:"))
             {
+                alarm_flag = false;
                 var niz = poruka.Split(' ');
                 if (niz.Length == 4)
                 {
@@ -252,7 +253,8 @@ namespace Client
                                 Ispis("[GREŠKA] Ne mogu da parsiram tip gume.\n");
                                 return;
                         }
-                        ZahtevajTrkackiBroj();
+                        if(trkacki_broj == "")
+                            ZahtevajTrkackiBroj();
                         Thread.Sleep(100);
                         Vozi();
                     }
@@ -527,6 +529,7 @@ namespace Client
                     Ispis("[ALARM] Stanje guma ili goriva kritično! Hitno siđite sa staze!");
                     PosaljiPorukuUdp("ALARM");
                     ObavestiSilazak();
+                    alarm_flag = false;
                 }
                 Thread.Sleep((int)(vreme_kruga * 1000)); // Simulacija vremena kruga
                 PosaljiVremeKruga(vreme_kruga);
