@@ -44,9 +44,13 @@ namespace ClientServer
             {
                 DuzinaStaze = Int32.Parse(TbDuzinaStaze.Text);
                 OsnovnoVremeKruga = Double.Parse(TbOVremeKruga.Text);
-                if (DuzinaStaze <= 0 || OsnovnoVremeKruga <= 0)
+                if (DuzinaStaze <= 0 || DuzinaStaze > 10)
                 {
-                    MessageBox.Show("Polja ne smeju biti 0 ili manja od 0!");
+                    MessageBox.Show("Duzina staze mora biti veca od 0 i manja od 10 km");
+                }
+                else if(OsnovnoVremeKruga <= 0)
+                {
+                    MessageBox.Show("Osnovno vreme kruga mora biti vece od 0");
                 }
                 else
                 {

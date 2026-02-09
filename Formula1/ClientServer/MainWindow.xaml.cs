@@ -269,7 +269,6 @@ namespace ClientServer
                         try
                         {
                             int clientUdpPort = Int32.Parse(poruka.Split(':')[1].Trim());
-
                             lock (_lock)
                             {
                                 var lista = GetTimZaPort(portIndex);
@@ -357,11 +356,14 @@ namespace ClientServer
                             }
                             catch { }
                         }
-
-                        Dispatcher.Invoke(() =>
+                        try
                         {
-                            DeaktivirajDugmeZaVozaca(portIndex, brVozaca + 1);
-                        });
+                            Dispatcher.Invoke(() =>
+                            {
+                                DeaktivirajDugmeZaVozaca(portIndex, brVozaca + 1);
+                            });
+                        }
+                        catch { }
                     }
                 }
 
@@ -400,6 +402,10 @@ namespace ClientServer
 
         private async Task ReceiveUdpLoop(int udpPort, CancellationToken cancellationToken)
         {
+            if (!_udpSockets.ContainsKey(udpPort))
+                return;
+
+            var udpSocket = _udpSockets[udpPort];
             byte[] buffer = new byte[4096];
 
             await Task.Run(() =>
@@ -408,35 +414,31 @@ namespace ClientServer
                 {
                     try
                     {
-                        var udpSocket = _udpSockets[udpPort];
-                        if (udpSocket.Connected == false)
-                            break;
                         EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
                         int bytesReceived = udpSocket.ReceiveFrom(buffer, ref remoteEP);
 
                         if (bytesReceived > 0)
                         {
                             string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
-                            Ispisi("Primljena od " + remoteEP + ": " + receivedMessage);
+                            
+                            if(receivedMessage.Contains("ALARM"))
+                            {
+                                Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
+                            }else
+                            {
+                                Ispisi("[UDP " + udpPort + "] Primljena od " + remoteEP + ": " + receivedMessage);
+                            }
                         }
                     }
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
                     {
                         continue;
                     }
-                    catch (SocketException ex)
-                    {
-                        if (!_isClosing)
-                        {
-                            Ispisi($"SocketException na UDP {udpPort}: {ex.SocketErrorCode} - {ex.Message}");
-                        }
-                        break;
-                    }
                     catch (Exception ex)
                     {
                         if (!_isClosing)
                         {
-                            Ispisi($"Greška pri čitanju UDP {udpPort}: {ex.Message}");
+                            Ispisi($"[{DateTime.Now.ToString("HH:mm:ss")}] Greška pri čitanju UDP {udpPort}: {ex.Message}");
                         }
                         break;
                     }
