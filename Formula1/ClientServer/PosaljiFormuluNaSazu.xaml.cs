@@ -43,9 +43,9 @@ namespace ClientServer
             }
 
             KolicinaGoriva = Int32.Parse(tbProcenatGoriva.Text);
-            if(KolicinaGoriva < 40 || KolicinaGoriva > 100)
+            if(KolicinaGoriva < 10 || KolicinaGoriva > 150)
             {
-                MessageBox.Show("Kolicina goriva mora biti iznad 40% i ispod 100%");
+                MessageBox.Show("Kolicina goriva moze biti od 10 do 150 l");
             }
             else
             {

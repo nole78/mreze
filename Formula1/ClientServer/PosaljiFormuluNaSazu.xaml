@@ -11,15 +11,15 @@
             <ColumnDefinition/>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <Label Content="Unesite tip guma:" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Height="26" Width="120"/>
-        <Label Content="Procenat goriva sa kojim pocinjete trku" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Grid.Column="1" Height="26" Width="240"/>
-        <ComboBox x:Name="cbTipGuma" HorizontalAlignment="Center" Margin="0,195,0,0" VerticalAlignment="Top" Width="180" Height="22">
+        <Label Content="Unesite tip guma:" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Height="26" Width="106"/>
+        <Label Content="Unesite količinu goriva u litrima:" HorizontalAlignment="Center" Margin="0,152,0,0" VerticalAlignment="Top" Grid.Column="1" Height="26" Width="180"/>
+        <ComboBox x:Name="cbTipGuma" HorizontalAlignment="Center" Margin="0,193,0,0" VerticalAlignment="Top" Width="180" Height="22">
             <ComboBoxItem Content="Tvrde" IsSelected="True"/>
             <ComboBoxItem Content="Srednje tvrde"/>
             <ComboBoxItem Content="Meke"/>
         </ComboBox>
         <Button x:Name="btnPosaljiFormulu" Content="Posalji formulu" HorizontalAlignment="Left" Margin="325,263,0,0" VerticalAlignment="Top" Width="150" Grid.ColumnSpan="2" Height="40" Click="btnPosaljiFormulu_Click"/>
-        <TextBox x:Name="tbProcenatGoriva" Grid.Column="1" HorizontalAlignment="Left" Margin="80,197,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="203"/>
+        <TextBox x:Name="tbProcenatGoriva" Grid.Column="1" HorizontalAlignment="Center" Margin="0,195,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="204"/>
 
     </Grid>
 </Window>
