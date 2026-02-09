@@ -27,6 +27,7 @@ namespace Server
         private static List<string> timovi = new List<string>() { "reno", "mercedes", "ferari", "honda" };
         private static Random rand = new Random();
         private int brojVozacaNaStazi = 0;
+        private double najbrzeVreme = 0;
 
         private Socket? server_socket;
         private readonly List<Socket> klienti = new List<Socket>();
@@ -294,8 +295,10 @@ namespace Server
             {
                 ListaVremena.Clear();
             });
+            bool najbrzi_generalno_prikazan = false;
             foreach (var krug in vremena)
             {
+                bool najbrzi_krug_prikazan = false;
                 string vozac = krug.Key;
                 var vremenaKrugova = krug.Value;
                 double najbolje_vreme = 0;
@@ -312,9 +315,14 @@ namespace Server
                         {
                             Vozac = vozac,
                             VremeKruga = ispis_vreme,
-                            Najbrze = vreme == najbolje_vreme
+                            Najbrze = vreme == najbolje_vreme && !najbrzi_krug_prikazan,
+                            NajbrzeGeneralno = vreme == najbrzeVreme && !najbrzi_generalno_prikazan
                         });
                     });
+                    if (vreme == najbolje_vreme && !najbrzi_krug_prikazan)
+                        najbrzi_krug_prikazan = true;
+                    if (vreme == najbrzeVreme && !najbrzi_generalno_prikazan)
+                        najbrzi_generalno_prikazan = true;
                 }
             }
             Dispatcher.Invoke(() =>
@@ -335,6 +343,10 @@ namespace Server
             if (!najbolja_vremena.ContainsKey(vozac))
             {
                 najbolja_vremena.Add(vozac, vreme);
+                if(najbrzeVreme == 0 || vreme < najbrzeVreme)
+                {
+                    najbrzeVreme = vreme;
+                }
             }
             else
             {
@@ -347,6 +359,10 @@ namespace Server
                     }
                 }
                 najbolja_vremena[vozac] = trenutnoNajbolje;
+                if (najbrzeVreme == 0 || trenutnoNajbolje < najbrzeVreme)
+                {
+                    najbrzeVreme = trenutnoNajbolje;
+                }
             }
 
         }
