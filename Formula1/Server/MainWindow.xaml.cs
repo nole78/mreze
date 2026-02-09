@@ -332,7 +332,6 @@ namespace Server
             {
                 vremena[vozac].Add(vreme);
             }
-            Ispis("Vreme kruga za vozača " + vozac + ": " + Double.Round(vreme, 2) + " sekundi");
             if (!najbolja_vremena.ContainsKey(vozac))
             {
                 najbolja_vremena.Add(vozac, vreme);

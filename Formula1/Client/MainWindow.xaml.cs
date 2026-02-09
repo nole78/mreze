@@ -72,6 +72,7 @@ namespace Client
 
                 Ispis($"[INFO] Izabrali ste tim: {poruka} - Tim: {bolid.Tim}");
 
+                lbTim.Content = poruka;
                 // Pokušaj da se poveže na server
                 TcpKonekcija(garagePort, ref сокет);
                 Loop(_cts, _rxTask, сокет);
@@ -157,6 +158,7 @@ namespace Client
             {
                 if (poruka.Contains("Nema više mesta u timu"))
                 {
+                    _cts.Cancel();
                     Dispatcher.Invoke(() =>
                     {
                         OtvoriOdabirTima();
@@ -190,17 +192,13 @@ namespace Client
                 trkacki_broj = broj.ToString();
                 Dispatcher.Invoke(() =>
                 {
-                    chatBox.AppendText($"[INFO] Dodeljen trkački broj: {trkacki_broj}\n");
-                    chatBox.ScrollToEnd();
+                    lbTrkackiBroj.Content = trkacki_broj;
                 });
+                Ispis("[INFO] Dodeljen trkački broj: " + trkacki_broj);
             }
             else
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText(poruka + "\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[INFO] Primljena poruka: " + poruka);
             }
         }
         private void Disconnect()
@@ -254,6 +252,8 @@ namespace Client
                                 Ispis("[GREŠKA] Ne mogu da parsiram tip gume.\n");
                                 return;
                         }
+                        ZahtevajTrkackiBroj();
+                        Thread.Sleep(100);
                         Vozi();
                     }
                 }
@@ -570,10 +570,6 @@ namespace Client
             {
                 Ispis("[GREŠKA] Nije pokrenuta vožnja, ne mogu da se zaustavim.");
             }
-        }
-        private void btZahtevajBroj_Click(object sender, RoutedEventArgs e)
-        {
-            ZahtevajTrkackiBroj();
         }
         protected override void OnClosed(EventArgs e)
         {
