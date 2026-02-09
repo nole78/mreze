@@ -42,13 +42,13 @@ namespace ClientServer
                 TipGuma = TipGume.Meke;
             }
 
-            KolicinaGoriva = Int32.Parse(tbProcenatGoriva.Text);
-            if(KolicinaGoriva < 10 || KolicinaGoriva > 150)
+            if(!Int32.TryParse(tbProcenatGoriva.Text,out int gorivo) || gorivo < 10 || gorivo > 150)
             {
                 MessageBox.Show("Kolicina goriva moze biti od 10 do 150 l");
             }
             else
             {
+                KolicinaGoriva = gorivo;
                 this.DialogResult = true;
                 this.Close();
             }

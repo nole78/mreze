@@ -7,8 +7,26 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800">
     <Grid x:Name="biranjeTima">
-        <TextBox x:Name="chatBox" HorizontalAlignment="Left" Margin="90,135,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="615" Height="277"/>
-        <Button x:Name="btZahtevajBroj" Content="ZAHTEVAJ TRKAČKI BROJ" HorizontalAlignment="Left" Margin="90,102,0,0" VerticalAlignment="Top" FontWeight="Bold" FontSize="20" FontFamily="Century Schoolbook" Click="btZahtevajBroj_Click"/>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="3*"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <TextBox x:Name="chatBox" Grid.Row="1" Grid.Column="1" Margin="5" TextWrapping="Wrap" BorderBrush="Black"/>
+        <Label Grid.Column="1" Content="AUTOMOBIL" Margin="5" FontWeight="Bold" FontSize="22" FontFamily="Bernard MT Condensed" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+        <Grid Grid.Column="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" x:Name="lbTrkackiBroj" Content="" Margin="5" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontFamily="Bernard MT Condensed" FontSize="36"/>
+            <Label x:Name="lbTim" Grid.Column="1" Margin="5" Content="" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontFamily="Bernard MT Condensed" FontSize="20"/>
+        </Grid>
 
     </Grid>
 </Window>
