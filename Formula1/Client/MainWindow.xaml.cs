@@ -15,6 +15,7 @@ using static System.Net.Mime.MediaTypeNames;
 using Client.Enumeracije;
 using Client.Modeli;
 using System.Threading.Tasks;
+using Client.PomocneFunkcije;
 
 namespace Client
 {
@@ -23,20 +24,27 @@ namespace Client
     /// </summary>
     public partial class MainWindow : Window
     {
-        private Socket? сокет, UdpSoket, trkaTcpSoket;
-        private CancellationTokenSource? _cts, _cts2, _cts3, _cts4;
+        private Socket сокет, UdpSoket, trkaTcpSoket;
+        private CancellationTokenSource _cts, _cts2, _cts3, _cts4;
         private Task? _rxTask,_udpTask,_voziTask,_trkaTask;
         private KonfiguracijaAutomobila bolid = new KonfiguracijaAutomobila();
-        private string? trkacki_broj = "";
+        private string trkacki_broj = "";
         private NacinVoznje nacinVoznje = NacinVoznje.Normalno;
-        private double osnovno_vreme = 0, duzina_kruga;
+        private double osnovno_vreme = 0, duzina_kruga = 0;
         private bool na_stazi = false, povezanSaGrazom = false, alarm_flag = false;
         private int br_sporog_kruga = 0;
         private const int garagePort = 50000, trkaPort = 59000;
-        int port = 0,mojUdpPort = 0;
+        int port = -1,mojUdpPort = 0;
 
         public MainWindow()
         {
+            _cts = new CancellationTokenSource();
+            _cts2 = new CancellationTokenSource();
+            _cts3 = new CancellationTokenSource();
+            _cts4 = new CancellationTokenSource();
+            UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            сокет = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            trkaTcpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             InitializeComponent();
             OtvoriOdabirTima();
         }
@@ -49,7 +57,9 @@ namespace Client
                 Timovi tim = odabirTima.izabraniTim;
                 bolid.Tim = tim;
                 string poruka = "";
-                RacunajPotrosnju(tim);
+                var gume_gorivo = RacunanjePotrosnje.RacunajPotrosnju(bolid.Tim);
+                bolid.PotrosnjaGuma = gume_gorivo.Item1;
+                bolid.PotrosnjaGoriva = gume_gorivo.Item2;
 
                 if (tim == Timovi.Honda)
                     poruka = "Honda";
@@ -60,50 +70,33 @@ namespace Client
                 else if (tim == Timovi.Reno)
                     poruka = "Reno";
 
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Izabrali ste tim: {poruka} - Tim: {bolid.Tim}\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis($"[INFO] Izabrali ste tim: {poruka} - Tim: {bolid.Tim}");
 
                 // Pokušaj da se poveže na server
                 TcpKonekcija(garagePort, ref сокет);
                 Loop(_cts, _rxTask, сокет);
                 if(PosaljiPorukuTcp(poruka, сокет))
                 {
-                    Dispatcher.Invoke(()=>
-                    {
-                        chatBox.AppendText($"[INFO] Poslali ste poruku garazi: {poruka}\n");
-                        chatBox.ScrollToEnd();
-                    });
+                    Ispis("[INFO] Poruka poslana garaži: " + poruka);
                 }
                 else
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[INFO] Neuspesno slanje poruke garazi.\n");
-                        chatBox.ScrollToEnd();
-                    });
+                    Ispis("[GREŠKA] Ne mogu da pošaljem poruku garaži.");
                 }
             }
             else
             {
                 // Korisnik je zatvorio prozor bez izbora
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText("[INFO] Prozor za izbor tima je zatvoren.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[INFO] Niste izabrali tim. Zatvaram aplikaciju.");
             }
         }
-        public void Loop(CancellationTokenSource cts, Task task,Socket soket)
+        public void Loop(CancellationTokenSource cts, Task? task,Socket soket)
         {
             cts = new CancellationTokenSource();
             task = Task.Run(() => ReceiveLoopTcp(cts.Token,soket));
         }
         private void TcpKonekcija(int port,ref Socket soket)
         {
-            soket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint serverEP = new IPEndPoint(IPAddress.Loopback, port);
             try
             {
@@ -112,11 +105,7 @@ namespace Client
             catch (Exception ex)
             {
                 // Ispiši grešku umesto MessageBox
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da se povežem: {ex.Message}\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Ne mogu da se povežem: " + ex.Message);
 
                 // Ponovo otvori prozor za izbor tima
                 if(!povezanSaGrazom)
@@ -143,39 +132,27 @@ namespace Client
                         Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
-                    EndPoint ep = soket.RemoteEndPoint;
-                    string posiljaocPort = ep.ToString().Split(':')[1];
-
+                    EndPoint? ep = soket.RemoteEndPoint;
+                    string posiljaocPort = (ep?.ToString() ?? "").Split(':')[1];
                     string text = Encoding.UTF8.GetString(buf, 0, n);
 
-                    ObradiPoruku(text,posiljaocPort);
+                    ObradiTCPPoruku(text,posiljaocPort);
                 }
                 catch (SocketException ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                        Disconnect();
-                    });
+                    Ispis("[GREŠKA pri primanju TCP] " + ex.Message);
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA123] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                        Disconnect();
-                    });
+                    Ispis("[GREŠKA] " + ex.Message);
                     break;
                 }
             }
         }
-        private void ObradiPoruku(string poruka,string port_posiljaoca)
+        private void ObradiTCPPoruku(string poruka,string port_posiljaoca)
         {
             // Ako server odbije konekciju, otvori ponovo izbor tima
-            int broj;
             if(port_posiljaoca == garagePort.ToString())
             {
                 if (poruka.Contains("Nema više mesta u timu"))
@@ -204,15 +181,11 @@ namespace Client
                         Loop(_cts4, _trkaTask, trkaTcpSoket);
                         povezanSaGrazom = true;
                         OtvoriUdpKonekciju();
-                        Dispatcher.Invoke(() =>
-                        {
-                            chatBox.AppendText($"[INFO] Povezan sa garažom. Port za UDP: {port}\n");
-                            chatBox.ScrollToEnd();
-                        });
+                        Ispis($"[INFO] Povezan sa garazom. Port za UDP: {port}");
                     }
                 }
             }
-            else if (int.TryParse(poruka, out broj) && broj >= 1 && broj <= 100)
+            else if (int.TryParse(poruka, out int broj) && broj >= 1 && broj <= 100)
             {
                 trkacki_broj = broj.ToString();
                 Dispatcher.Invoke(() =>
@@ -234,31 +207,22 @@ namespace Client
         {
             try
             {
-                if (_cts != null) _cts.Cancel();
-
-                if (сокет != null)
-                {
-                    try { сокет.Shutdown(SocketShutdown.Both); } catch { }
-                    try { сокет.Close(); } catch { }
-                }
-                сокет = null;
+                trkaTcpSoket.Close();
+                сокет.Close();
+                UdpSoket.Close();
+                _cts.Cancel();
+                _cts2.Cancel();
+                _cts3.Cancel();
+                _cts4.Cancel();
             }
             catch (Exception ex)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA pri gašenju] {ex.Message}\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA pri gašenju] " + ex.Message);
             }
         }
         public void ObradiUdpPoruku(string poruka)
         {
-            Dispatcher.Invoke(() =>
-            {
-                chatBox.AppendText($"[UDP] {poruka}\n");
-                chatBox.ScrollToEnd();
-            });
+            Ispis("[UDP] Primljena poruka: " + poruka);
             if(poruka.Trim() == "Sidji sa staze")
             {
                 ObavestiSilazak();
@@ -287,11 +251,7 @@ namespace Client
                                 bolid.StanjeGoriva = gorivo;
                                 break;
                             default:
-                                Dispatcher.Invoke(() =>
-                                {
-                                    chatBox.AppendText($"[GREŠKA] Ne mogu da parsiram tip gume.\n");
-                                    chatBox.ScrollToEnd();
-                                });
+                                Ispis("[GREŠKA] Ne mogu da parsiram tip gume.\n");
                                 return;
                         }
                         Vozi();
@@ -358,7 +318,6 @@ namespace Client
                     int n = s.ReceiveFrom(buf,ref senderEP);
                     if (n == 0)
                     {
-                        //Dispatcher.Invoke(() => Disconnect());
                         break;
                     }
 
@@ -372,65 +331,33 @@ namespace Client
                 }
                 catch (SocketException ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA - SocketException] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                        //Disconnect();
-                    });
+                    Ispis("[GREŠKA pri primanju UDP] " + ex.Message);
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                        //Disconnect();
-                    });
+                    Ispis("[GREŠKA] " + ex.Message);
                     break;
                 }
             }
         }
         private void OtvoriUdpKonekciju()
         {
-            UdpSoket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            IPEndPoint destinationEP = new IPEndPoint(IPAddress.Any, 0);
-            UdpSoket.Bind(destinationEP);
-            mojUdpPort = ((IPEndPoint)UdpSoket.LocalEndPoint).Port;
-            UdpSoket.Blocking = false;
-            _cts2 = new CancellationTokenSource();
-            _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
+            try
+            {
+                IPEndPoint destinationEP = new IPEndPoint(IPAddress.Any, 0);
+                UdpSoket.Bind(destinationEP);
+                IPEndPoint? mojEP = (IPEndPoint?)UdpSoket.LocalEndPoint;
+                if(mojEP != null)
+                    mojUdpPort = mojEP.Port;
+                UdpSoket.Blocking = false;
+                _cts2 = new CancellationTokenSource();
+                _udpTask = Task.Run(() => ReceiveLoopUdp(_cts2.Token, destinationEP));
 
-            Dispatcher.Invoke(() =>
-            {
-                chatBox.AppendText($"Otvorena UDP utičnica");
-                chatBox.ScrollToEnd();
-            });
-            PosaljiPorukuTcp("UDP_PORT: " + mojUdpPort, сокет);
-        }
-        public void RacunajPotrosnju(Timovi tim)
-        {
-            if (tim == Timovi.Mercedes)
-            {
-                bolid.PotrosnjaGuma = 0.3;
-                bolid.PotrosnjaGoriva = 0.6;
+                Ispis("UDP utičnica otvorena na portu: " + mojUdpPort); ;
+                PosaljiPorukuTcp("UDP_PORT: " + mojUdpPort, сокет);
             }
-            else if (tim == Timovi.Ferari)
-            {
-                bolid.PotrosnjaGuma = 0.3;
-                bolid.PotrosnjaGoriva = 0.5;
-            }
-            else if (tim == Timovi.Reno)
-            {
-                bolid.PotrosnjaGuma = 0.4;
-                bolid.PotrosnjaGoriva = 0.7;
-            }
-            else if (tim == Timovi.Honda)
-            {
-                bolid.PotrosnjaGuma = 0.2;
-                bolid.PotrosnjaGoriva = 0.6;
-            }
+            catch { }
         }
         private bool PosaljiPorukuTcp(string poruka,Socket soket)
         {
@@ -446,11 +373,7 @@ namespace Client
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA pri slanju] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                    });
+                    Ispis($"[GREŠKA pri slanju TCP] {ex.Message}");
                     return false;
                 }
             }
@@ -472,11 +395,7 @@ namespace Client
                 }
                 catch (Exception ex)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[GREŠKA pri slanju UDP] {ex.Message}\n");
-                        chatBox.ScrollToEnd();
-                    });
+                    Ispis("[GREŠKA pri slanju UDP] " + ex.Message);
                     return false;
                 }
             }
@@ -487,21 +406,13 @@ namespace Client
         {
             if(trkacki_broj != string.Empty)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Već imate trkački broj: {trkacki_broj}\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Već imate trkački broj.");
                 return;
             }
             string tim;
             if(bolid.Tim == 0)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Niste izabrali tim.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Niste izabrali tim");
                 return;
             }
             switch (bolid.Tim)
@@ -524,19 +435,11 @@ namespace Client
             }
             if (PosaljiPorukuTcp(tim,trkaTcpSoket))
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Poslat zahtev za trkački broj: {tim}\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[INFO] Zahtev za trkački broj poslat.");
             }
             else
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem zahtev za trkački broj.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Ne mogu da pošaljem zahtev za trkački broj.");
             }
 
         }
@@ -544,19 +447,11 @@ namespace Client
         {
             if(!PosaljiPorukuTcp(trkacki_broj + bolid.Tim + " " + vreme.ToString(),trkaTcpSoket))
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem vreme kruga.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Ne mogu da pošaljem vreme kruga.");
             }
             else
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Poslato vreme kruga: {vreme}.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[INFO] Poslato vreme kruga: " + vreme);
             }
         }
         private double IzracunajVreme(int br_kruga)
@@ -589,17 +484,18 @@ namespace Client
                 tempo_guma -= 0.6;
             bolid.StanjeGuma -= duzina_kruga * bolid.PotrosnjaGuma;
             bolid.StanjeGoriva -= duzina_kruga * bolid.PotrosnjaGoriva;
+            var gume_gorivo = RacunanjePotrosnje.RacunajPotrosnju(bolid.Tim);
 
             if (nacinVoznje == NacinVoznje.Brzo)
             {
-                RacunajPotrosnju(bolid.Tim);
-                bolid.PotrosnjaGuma += 0.3;
-                bolid.PotrosnjaGoriva += 0.3;
+                bolid.PotrosnjaGuma = gume_gorivo.Item1 + 0.3;
+                bolid.PotrosnjaGoriva = gume_gorivo.Item2 + 0.3;
                 br_sporog_kruga = 0;
             }
             else
             {
-                RacunajPotrosnju(bolid.Tim);
+                bolid.PotrosnjaGuma = gume_gorivo.Item1;
+                bolid.PotrosnjaGoriva = gume_gorivo.Item2;
                 if(nacinVoznje == NacinVoznje.Normalno)
                     br_sporog_kruga = 0;
             }
@@ -634,48 +530,28 @@ namespace Client
                 PosaljiVremeKruga(vreme_kruga);
                 if (PosaljiPorukuUdp("gume: " + bolid.PotrosnjaGuma + " gorivo: " + bolid.PotrosnjaGoriva))
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        chatBox.AppendText($"[INFO] Poslato stanje guma i goriva.\n");
-                        chatBox.ScrollToEnd();
-                    });
+                    Ispis("[INFO] Poslato stanje guma i goriva.");
                 }
             }
             if (!PosaljiPorukuTcp("silazim sa staze", trkaTcpSoket))
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Ne mogu da pošaljem obaveštenje o silasku sa staze.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Ne mogu da pošaljem poruku silaska sa staze.");
             }
             else
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[INFO] Poslato obaveštenje o silasku sa staze.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[INFO] Poslato obaveštenje o silasku sa staze.");
             }
         }
         private void Vozi()
         {
             if (trkacki_broj == string.Empty)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Nemate trkački broj.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Nemate trkački broj.");
                 return;
             }
             if(na_stazi)
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Već ste na stazi.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Već ste na stazi.");
                 return;
             }
             PosaljiPorukuTcp("izlazim na stazu", trkaTcpSoket);
@@ -692,11 +568,7 @@ namespace Client
                 _cts3?.Cancel();
             else
             {
-                Dispatcher.Invoke(() =>
-                {
-                    chatBox.AppendText($"[GREŠKA] Nije pokrenuta vožnja, ne mogu da se zaustavim.\n");
-                    chatBox.ScrollToEnd();
-                });
+                Ispis("[GREŠKA] Nije pokrenuta vožnja, ne mogu da se zaustavim.");
             }
         }
         private void btZahtevajBroj_Click(object sender, RoutedEventArgs e)
@@ -705,21 +577,22 @@ namespace Client
         }
         protected override void OnClosed(EventArgs e)
         {
-            if(_cts != null)
-                _cts2?.Cancel();
-            if(_cts3 != null)
-                _cts3?.Cancel();
-            if (_cts4 != null)
-                _cts4?.Cancel();
-            if(_cts != null)
-                _cts?.Cancel();
-            trkaTcpSoket?.Close();
-            trkaTcpSoket = null;
-            UdpSoket?.Close();
-            UdpSoket= null;
-            сокет?.Close();
-            сокет = null;
+            _cts2.Cancel();
+            _cts3.Cancel();
+            _cts4.Cancel();
+            _cts.Cancel();
+            trkaTcpSoket.Close();
+            UdpSoket.Close();
+            сокет.Close();
             base.OnClosed(e);
+        }
+        private void Ispis(string txt)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                chatBox.AppendText(txt + "\n");
+                chatBox.ScrollToEnd();
+            });
         }
     }
 }
