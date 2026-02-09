@@ -304,7 +304,7 @@ namespace Server
                 {
                     int minut = (int)vreme / 60;
                     int sekunde = (int)vreme % 60;
-                    int milisekunde = (int)(vreme * 1000)%1000;
+                    int milisekunde = (int)(vreme * 10000)%10000;
                     string ispis_vreme = minut + ":" + sekunde + ":" + milisekunde;
                     Dispatcher.Invoke(() =>
                     { 
