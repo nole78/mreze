@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Server"
         mc:Ignorable="d"
-        Title="Direkcija Trke" Height="500" Width="800">
+        Title="Direkcija Trke" Height="600" Width="800">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -15,33 +15,49 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
             <ColumnDefinition/>
-            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="2*"/>
         </Grid.ColumnDefinitions>
-
-        <Label x:Name="lNaslov" Content="DIREKCIJA TRKE" Grid.Row="0" Grid.ColumnSpan="2" Grid.Column="0" Margin="10" FontSize="22" VerticalContentAlignment="Center" FontWeight="Bold" FontFamily="Castellar"/>
-        <Grid Grid.Column="2" Grid.Row="1">
+        
+        <Label x:Name="lNaslov" Content="DIREKCIJA TRKE" Grid.Row="0" Grid.ColumnSpan="2" Grid.Column="0" Margin="10" FontSize="22" VerticalContentAlignment="Center" FontWeight="Bold" FontFamily="Bernard MT Condensed"/>
+        <Label Grid.Column="2" Content="VREMENA KRUGOVA" VerticalAlignment="Center" FontFamily="Bernard MT Condensed" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
+        <ListBox x:Name="Lista" ItemsSource="{Binding ListaVremena}" Grid.Column="2" Grid.Row="1" BorderBrush="Black" Background="White" Margin="5">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock FontFamily="Century Schoolbook" FontSize="18" FontWeight="Bold">
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} : {1}">
+                                <Binding Path="Vozac"/>
+                                <Binding Path="VremeKruga"/>
+                            </MultiBinding>
+                        </TextBlock.Text>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Background" Value="#FF4AD943"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Najbrze}" Value="True">
+                                        <Setter Property="Background" Value="#FF861C95"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBox x:Name="tbTEST" Grid.Column="0" Margin="5" Grid.ColumnSpan="2" Grid.Row="1" TextWrapping="Wrap" Text="Console &gt;&gt;" BorderBrush="Black" FontWeight="Bold" FontFamily="Century Schoolbook" FontSize="14" Foreground="#FF04FC1C" Background="#CC000000" IsReadOnly="True"/>
+        <Grid Grid.Column="2" Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-
+            <Label Grid.Column="1" Content="Obican krug" HorizontalAlignment="Left" Margin="5" VerticalAlignment="Top" FontSize="20" FontWeight="Bold" FontFamily="Bernard MT Condensed"/>
+            <Label Grid.Column="1" Content="Najbrzi krug" HorizontalAlignment="Left" Margin="5" Grid.Row="1" VerticalAlignment="Center" FontSize="20" FontFamily="Bernard MT Condensed"/>
+            <TextBox Grid.ColumnSpan="1" HorizontalAlignment="Right" Margin="5" TextWrapping="Wrap" VerticalAlignment="Center" Width="30" Height="30" Background="#FF4AD943" BorderBrush="Black"/>
+            <TextBox Grid.ColumnSpan="1" HorizontalAlignment="Right" Margin="5" Grid.Row="1" TextWrapping="Wrap" VerticalAlignment="Center" Width="30" Height="30" Background="#FF861C95" BorderBrush="Black"/>
         </Grid>
-        <Grid Grid.Column="3" Grid.Row="1" Grid.RowSpan="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="tbVremena" Margin="0,0,10,5" Grid.Column="0" TextWrapping="Wrap" FontSize="18" FontFamily="Century Schoolbook" BorderBrush="Black" Background="#7FD1DC08"/>
-            <TextBox x:Name="tbNajVremena" Grid.Column="1" Margin="0,0,10,5" TextWrapping="Wrap" FontFamily="Century Schoolbook" FontSize="18" BorderBrush="Black" Background="#7F51118C"/>
-        </Grid>
-        <Grid Grid.Column="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition/>
-                <ColumnDefinition/>
-            </Grid.ColumnDefinitions>
-            <Label Grid.Column="0" Content="VREMENA KRUGOVA" VerticalAlignment="Center" FontFamily="Bernard MT Condensed" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
-            <Label Grid.Column="1" Content="NAJBOLJA VREMENA KRUGOVA" VerticalAlignment="Center" FontWeight="Bold" FontFamily="Bernard MT Condensed" FontSize="20" HorizontalAlignment="Center"/>
-        </Grid>
-        <TextBox x:Name="tbTEST" Grid.Column="0" Margin="5" Grid.ColumnSpan="2" Grid.Row="1" TextWrapping="Wrap" Text="Console &gt;&gt;" BorderBrush="Black" FontWeight="Bold" FontFamily="Century Schoolbook" FontSize="16" Foreground="#FF04FC1C" Background="#CC000000" IsReadOnly="True"/>
     </Grid>
 </Window>

@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.Eventing.Reader;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics.Eventing.Reader;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -13,11 +14,13 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using static System.Net.Mime.MediaTypeNames;
+using Server.Entiteti;
 
 namespace Server
 {
     public partial class MainWindow : Window
     {
+        public ObservableCollection<Vreme> ListaVremena { get; set; } = new();
         private Dictionary<string, List<double>> vremena = new Dictionary<string, List<Double>>();
         private Dictionary<string, double> najbolja_vremena = new Dictionary<string, double>();
         private static List<string> trkackiBrojevi = new List<string>();
@@ -37,6 +40,7 @@ namespace Server
         {
             InitializeComponent();
             StartServer();
+            DataContext = this;
         }
 
         private void StopServer()
@@ -145,7 +149,7 @@ namespace Server
 
                 if (timovi.Contains(text.Trim().ToLower()))
                 {
-                    TrazenjeTrkackogBroja(klijent, text.Trim().ToLower());
+                    TrazenjeTrkackogBroja(klijent, text.Trim());
                 }
                 else if (text.Trim().ToLower() == "silazim sa staze")
                 {
@@ -288,35 +292,35 @@ namespace Server
         {
             Dispatcher.Invoke(() =>
             {
-                tbVremena.Clear();
+                ListaVremena.Clear();
             });
             foreach (var krug in vremena)
             {
                 string vozac = krug.Key;
-                List<double> vremenaKrugova = krug.Value;
-                foreach (double vreme in vremenaKrugova)
+                var vremenaKrugova = krug.Value;
+                double najbolje_vreme = 0;
+                najbolje_vreme = najbolja_vremena[vozac];
+                foreach (var vreme in vremenaKrugova)
                 {
-                    var match = Regex.Match(vozac, @"^(\d+)([a-zA-Z]+)$");
                     Dispatcher.Invoke(() =>
-                    {
-                        tbVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme / 60 + ":" + (int)vreme % 60 + ":" + (int)(vreme * 100) % 100 + "\n";
+                    { 
+                        ListaVremena.Add(new Vreme
+                        {
+                            Vozac = vozac,
+                            VremeKruga = vreme,
+                            Najbrze = vreme == najbolje_vreme
+                        });
                     });
                 }
             }
             Dispatcher.Invoke(() =>
             {
-                tbNajVremena.Clear();
-            });
-            foreach (var krug in najbolja_vremena)
-            {
-                string vozac = krug.Key;
-                double vreme = krug.Value;
-                var match = Regex.Match(vozac, @"^(\d+)([a-zA-Z]+)$");
-                Dispatcher.Invoke(() =>
+                Lista.Dispatcher.Invoke(() =>
                 {
-                    tbNajVremena.Text += match.Groups[2].Value + " " + match.Groups[1].Value + " : " + (int)vreme / 60 + ":" + (int)vreme % 60 + ":" + (int)(vreme * 100) % 100 + "\n";
+                    CollectionViewSource.GetDefaultView(Lista.ItemsSource)?.Refresh();
                 });
-            }
+
+            });
         }
         private void VremeKruga(string vozac, double vreme)
         {
