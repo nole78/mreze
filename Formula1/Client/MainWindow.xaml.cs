@@ -323,7 +323,7 @@ namespace Client
                 var niz = poruka.Trim().Split(' ');
                 if (niz.Length == 4)
                 {
-                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && vreme > 10)
+                    if (double.TryParse(niz[2], out double duzina) && duzina > 0 && double.TryParse(niz[3],out double vreme) && vreme >= 10)
                     {
                         duzina_kruga = duzina;
                         osnovno_vreme = vreme;

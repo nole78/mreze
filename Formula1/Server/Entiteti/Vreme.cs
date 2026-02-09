@@ -9,7 +9,7 @@ namespace Server.Entiteti
     public class Vreme
     {
         public string Vozac { get; set; } = "";
-        public double VremeKruga { get; set; } = 0.0;
+        public string VremeKruga { get; set; } = "";
         public bool Najbrze { get; set; } = false;
     }
 }

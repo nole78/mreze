@@ -302,12 +302,16 @@ namespace Server
                 najbolje_vreme = najbolja_vremena[vozac];
                 foreach (var vreme in vremenaKrugova)
                 {
+                    int minut = (int)vreme / 60;
+                    int sekunde = (int)vreme % 60;
+                    int milisekunde = (int)(vreme * 1000)%1000;
+                    string ispis_vreme = minut + ":" + sekunde + ":" + milisekunde;
                     Dispatcher.Invoke(() =>
                     { 
                         ListaVremena.Add(new Vreme
                         {
                             Vozac = vozac,
-                            VremeKruga = vreme,
+                            VremeKruga = ispis_vreme,
                             Najbrze = vreme == najbolje_vreme
                         });
                     });
