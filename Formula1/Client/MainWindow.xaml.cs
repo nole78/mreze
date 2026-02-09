@@ -279,11 +279,11 @@ namespace Client
                                 bolid.StanjeGoriva = gorivo;
                                 break;
                             case "S":
-                                bolid.StanjeGuma = 70;
+                                bolid.StanjeGuma = 80;
                                 bolid.StanjeGoriva = gorivo;
                                 break;
                             case "H":
-                                bolid.StanjeGuma = 50;
+                                bolid.StanjeGuma = 120;
                                 bolid.StanjeGoriva = gorivo;
                                 break;
                             default:
@@ -584,9 +584,9 @@ namespace Client
                     break;
             }
             tempo_goriva = 1 / bolid.StanjeGoriva;
-
-            if (bolid.StanjeGuma < 35)
-            tempo_guma -= 0.6;
+            double procenat_guma = bolid.StanjeGuma / bolid.GetTrajanjeGuma() * 100;
+            if ( procenat_guma < 35 )
+                tempo_guma -= 0.6;
             bolid.StanjeGuma -= duzina_kruga * bolid.PotrosnjaGuma;
             bolid.StanjeGoriva -= duzina_kruga * bolid.PotrosnjaGoriva;
 
@@ -595,10 +595,13 @@ namespace Client
                 RacunajPotrosnju(bolid.Tim);
                 bolid.PotrosnjaGuma += 0.3;
                 bolid.PotrosnjaGoriva += 0.3;
+                br_sporog_kruga = 0;
             }
             else
             {
                 RacunajPotrosnju(bolid.Tim);
+                if(nacinVoznje == NacinVoznje.Normalno)
+                    br_sporog_kruga = 0;
             }
             vreme = osnovno_vreme - tempo_guma - tempo_goriva;
             if (nacinVoznje == NacinVoznje.Sporo)
@@ -608,7 +611,7 @@ namespace Client
 
             bolid.StanjeGoriva -= duzina_kruga * bolid.PotrosnjaGoriva;
             bolid.StanjeGuma -= duzina_kruga * bolid.PotrosnjaGuma;
-            if(bolid.StanjeGoriva <= 25 || bolid.StanjeGoriva <= 2 * duzina_kruga * bolid.PotrosnjaGoriva)
+            if(procenat_guma <= 25 || bolid.StanjeGoriva <= 2 * duzina_kruga * bolid.PotrosnjaGoriva)
             {
                 alarm_flag = true;
             }

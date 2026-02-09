@@ -11,12 +11,12 @@ namespace Client.Modeli
 {
     public class KonfiguracijaAutomobila
     {
-        public Timovi Tim { get; set; } = 0;
-        public TipGume TipGume { get; set; } = 0;
-        public double PotrosnjaGuma { get; set; } = 0;
-        public double PotrosnjaGoriva { get; set; } = 0;
-        public double StanjeGoriva { get; set; } = 0;
-        public double StanjeGuma { get; set; } = 0;
+        public Timovi Tim { get; set; } = 0; // Tim: NEMA_TIM, Mercedes, Ferari, Reno, Honda
+        public TipGume TipGume { get; set; } = 0; // Tip gume: Meke, SrednjeTvrde, Tvrde
+        public double PotrosnjaGuma { get; set; } = 0; // Potrošnja guma
+        public double PotrosnjaGoriva { get; set; } = 0; // Potrošnja goriva
+        public double StanjeGoriva { get; set; } = 0; // Kolicina goriva u litrima
+        public double StanjeGuma { get; set; } = 0; // Trajanje guma u kilometrima
 
         public KonfiguracijaAutomobila() { }
         public KonfiguracijaAutomobila(Timovi tim, double potrosnjaGuma, double potrosnjaGoriva, TipGume tipGume)
@@ -25,6 +25,21 @@ namespace Client.Modeli
             PotrosnjaGuma = potrosnjaGuma;
             PotrosnjaGoriva = potrosnjaGoriva;
             TipGume = tipGume;
+        }
+    
+        public double GetTrajanjeGuma()
+        {
+            switch (TipGume)
+            {
+                case TipGume.Meke:
+                    return 80;
+                case TipGume.SrednjeTvrde:
+                    return 100;
+                case TipGume.Tvrde:
+                    return 120;
+                default:
+                    return 0;
+            }
         }
     }
 }
