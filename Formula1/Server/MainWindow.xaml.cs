@@ -160,7 +160,7 @@ namespace Server
                     var niz = text.Split(' ');
                     string vozac = niz[0];
                     double vreme = 0;
-                    if (vozac != string.Empty && double.TryParse(niz[1], out vreme) && vreme > 10 && vreme < 1000)
+                    if (vozac != string.Empty && double.TryParse(niz[1], out vreme) && vreme > 1 && vreme < 1000)
                     {
                         VremeKruga(vozac, vreme);
                     }
