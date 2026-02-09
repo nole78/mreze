@@ -33,7 +33,7 @@ namespace Client
         private bool na_stazi = false, povezanSaGrazom = false, alarm_flag = false;
         private int br_sporog_kruga = 0;
         private const int garagePort = 50000, trkaPort = 59000;
-        int port = 0,mojUdpPort = 0;
+        int port = -1,mojUdpPort = 0;
 
         public MainWindow()
         {
@@ -180,10 +180,9 @@ namespace Client
             {
                 if (poruka.Contains("Nema više mesta u timu"))
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        OtvoriOdabirTima();
-                    });
+                    _cts.Cancel();
+                    OtvoriOdabirTima();
+
                 }
                 if (poruka.Contains("Port:"))
                 {
